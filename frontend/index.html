@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assessment Report Builder</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <p class="eyebrow">Assessment Report Builder</p>
+      <h1>Widget oficial de geração de relatório de assessment</h1>
+      <p class="description">
+        Transcrição → assessment.json editável → revisão humana → relatório final editável.
+      </p>
+    </section>
+
+    <section class="status-card">
+      <h2>Status do backend</h2>
+      <p id="backend-status">Verificando...</p>
+      <button id="check-health" type="button">Verificar /health</button>
+    </section>
+
+    <section class="panel">
+      <h2>MVP técnico</h2>
+      <p>
+        Esta tela confirma que o link oficial do widget está carregando e que o backend Render pode responder.
+        A próxima etapa será conectar upload de transcrição, geração de assessment.json, editor de seções e geração DOCX.
+      </p>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
