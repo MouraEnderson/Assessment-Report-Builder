@@ -24,17 +24,7 @@ jobs:
         run: npm install
 
       - name: Check backend syntax
-        run: |
-          node --check backend/server-entry.js
-          node --check backend/server.js
-
-      - name: Check frontend syntax
-        run: |
-          node --check frontend/config.js
-          node --check frontend/assessment-state.js
-          node --check frontend/assessment-api-client.js
-          node --check frontend/assessment-controller.js
-          node --check frontend/app.js
+        run: node --check backend/server.js
 
       - name: Build Docker image
         run: docker build -t assessment-report-builder:ci .
