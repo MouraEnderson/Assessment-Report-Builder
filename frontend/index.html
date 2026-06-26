@@ -5,183 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Widget oficial para criação de relatórios de assessment estruturados, revisáveis e editáveis." />
   <title>Assessment Report Builder</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    :root{font-family:Arial,Helvetica,sans-serif;color:#172033;background:#f4f6f9;--primary:#1f5bd8;--border:#dfe5ee;--muted:#637084;--danger:#b42318;--success:#147a42;--warning:#9b6700}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eef2f8 0,#f7f8fb 260px,#f4f6f9 100%)}button,input,select,textarea{font:inherit}.topbar{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px 24px;background:rgba(255,255,255,.96);border-bottom:1px solid var(--border);box-shadow:0 6px 24px rgba(20,40,80,.06)}.brand-kicker{margin:0 0 2px;color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.backend-box{display:flex;align-items:center;gap:10px;font-size:13px}.backend-box span{padding:8px 10px;border-radius:999px;background:#edf1f7;color:#4b586d}.backend-box span.online{background:#eaf7ef;color:var(--success)}.backend-box span.offline{background:#fff0ee;color:var(--danger)}.app-shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:32px 0 64px}.panel{margin-bottom:20px;padding:28px;background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:0 18px 45px rgba(22,37,64,.08)}.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,360px);gap:28px;align-items:center}.eyebrow,.step{display:inline-block;margin-bottom:10px;color:var(--primary);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}h1,h2,p{margin-top:0}h1{max-width:760px;margin-bottom:16px;font-size:clamp(34px,5vw,58px);line-height:1.02;letter-spacing:-.035em}h2{margin-bottom:0;font-size:23px}.description{max-width:760px;margin-bottom:0;color:#4d5a6e;font-size:18px;line-height:1.65}.master-rule{display:flex;flex-direction:column;gap:8px;padding:24px;background:linear-gradient(145deg,#163d91,#1f5bd8);border-radius:16px;color:#fff}.master-rule strong{font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.82}.master-rule span{font-size:24px;font-weight:800;line-height:1.2}.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px}.saved-status,.counter,.tag{color:var(--muted);font-size:13px}.tag{padding:7px 10px;border:1px solid #cfe0ff;border-radius:999px;color:var(--primary);background:#eff5ff;font-weight:700}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.field{display:flex;flex-direction:column;gap:8px}.field>span{color:#354156;font-size:13px;font-weight:750}input,select,textarea{width:100%;border:1px solid #cdd6e3;border-radius:12px;background:#fff;color:#172033}input,select{min-height:46px;padding:0 13px}textarea{padding:14px;resize:vertical;line-height:1.55}.transcript-editor{min-height:260px}.json-editor{min-height:480px;background:#111827;color:#e5edf9;border-color:#263348;font-family:Consolas,monospace;font-size:13px}.source-note,.helper-text{margin-bottom:18px;color:var(--muted);line-height:1.55}.source-note{padding:13px 15px;border-left:4px solid var(--primary);border-radius:8px;background:#f3f7ff}.actions{display:flex;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}.button{min-height:42px;padding:10px 16px;border:1px solid transparent;border-radius:10px;font-weight:800;cursor:pointer}.button-primary{background:var(--primary);color:#fff}.button-secondary{background:#fff;color:#263247;border-color:#cdd6e3}.button-danger-ghost{background:transparent;color:var(--danger);border-color:#f0c9c4}.button-small{min-height:34px;padding:7px 11px;font-size:12px}.status-message,.validation-message{margin:18px 0 0;padding:13px 15px;border-radius:10px;background:#f7f9fc;color:#4f5d72;line-height:1.45}.status-message.success,.validation-message.valid{color:var(--success);background:#ebf8f0}.status-message.error,.validation-message.invalid{color:var(--danger);background:#fff0ee}.status-message.working,.validation-message.checking{color:var(--primary);background:#eef4ff}.validation-message.warning{color:var(--warning);background:#fff8e8}.principles-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.principles-grid article{padding:18px;border:1px solid var(--border);border-radius:14px;background:#f7f9fc}.principles-grid p{margin-bottom:0;color:var(--muted);font-size:14px;line-height:1.5}@media(max-width:800px){.hero,.form-grid,.principles-grid{grid-template-columns:1fr}.topbar{position:static;flex-direction:column;align-items:flex-start}.app-shell{width:min(100% - 20px,1180px);padding-top:14px}.panel{padding:20px}.actions{flex-direction:column;align-items:stretch}.button{width:100%}}
+  </style>
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <p class="brand-kicker">Assessment Report Builder</p>
-      <strong>Widget oficial</strong>
-    </div>
-    <div class="backend-box" aria-live="polite">
-      <span id="backend-status" data-type="checking">Verificando backend...</span>
-      <button id="check-health" class="button button-secondary button-small" type="button">
-        Verificar
-      </button>
-    </div>
+    <div><p class="brand-kicker">Assessment Report Builder</p><strong>Widget oficial</strong></div>
+    <div class="backend-box" aria-live="polite"><span id="backend-status">Verificando backend...</span><button id="check-health" class="button button-secondary button-small" type="button">Verificar</button></div>
   </header>
-
   <main class="app-shell">
-    <section class="hero panel">
-      <div>
-        <p class="eyebrow">MVP 1 · Assessment JSON Builder</p>
-        <h1>Transcrição estruturada antes do relatório</h1>
-        <p class="description">
-          A transcrição é o insumo. O <strong>assessment.json</strong> revisado é a fonte da verdade.
-          O DOCX será uma saída gerada somente depois da revisão humana.
-        </p>
-      </div>
-      <div class="master-rule">
-        <strong>Premissa mestre</strong>
-        <span>O link oficial do widget nunca muda.</span>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <span class="step">Etapa 1</span>
-          <h2>Contexto do assessment</h2>
-        </div>
-        <span id="saved-status" class="saved-status">Carregando estado...</span>
-      </div>
-
-      <div class="form-grid">
-        <label class="field">
-          <span>Cliente</span>
-          <input id="client-name" type="text" autocomplete="organization" placeholder="Nome do cliente" />
-        </label>
-
-        <label class="field">
-          <span>Área principal</span>
-          <input id="business-area" type="text" placeholder="Ex.: Engenharia de Produto" />
-        </label>
-
-        <label class="field">
-          <span>Tipo de assessment</span>
-          <select id="assessment-type">
-            <option value="plm_assessment">PLM Assessment</option>
-            <option value="software_assessment">Software Assessment</option>
-            <option value="process_assessment">Process Assessment</option>
-            <option value="digital_transformation_assessment">Digital Transformation Assessment</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Modo de geração</span>
-          <select id="generation-mode">
-            <option value="conservador">Conservador</option>
-            <option value="consultivo">Consultivo</option>
-            <option value="executivo">Executivo</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <span class="step">Etapa 2</span>
-          <h2>Transcrição</h2>
-        </div>
-        <span id="transcript-counter" class="counter">0 caracteres · 0 palavras</span>
-      </div>
-
-      <div class="source-note">
-        Neste MVP, cole o texto da transcrição. Upload local e seleção manual via bookmark serão adicionados sem alterar o link do widget.
-      </div>
-
-      <label class="field">
-        <span>Texto da transcrição</span>
-        <textarea
-          id="transcript-text"
-          class="transcript-editor"
-          placeholder="Cole aqui a transcrição da reunião de assessment..."
-          spellcheck="true"
-        ></textarea>
-      </label>
-
-      <div class="actions">
-        <button id="generate-assessment" class="button button-primary" type="button">
-          Gerar assessment.json
-        </button>
-        <button id="reset-session" class="button button-danger-ghost" type="button">
-          Limpar sessão
-        </button>
-      </div>
-
-      <p id="operation-status" class="status-message" data-type="info" aria-live="polite">
-        Preencha o contexto e cole uma transcrição para iniciar.
-      </p>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <span class="step">Etapa 3</span>
-          <h2>Revisão do assessment.json</h2>
-        </div>
-        <span class="tag">Editável</span>
-      </div>
-
-      <p class="helper-text">
-        O conteúdo abaixo pode ser alterado manualmente. Depois de editar, salve e valide contra o schema oficial.
-      </p>
-
-      <label class="field">
-        <span>assessment.json</span>
-        <textarea
-          id="assessment-json"
-          class="json-editor"
-          placeholder="O JSON gerado aparecerá aqui."
-          spellcheck="false"
-        ></textarea>
-      </label>
-
-      <div class="actions actions-wrap">
-        <button id="save-json" class="button button-secondary" type="button">
-          Salvar alterações
-        </button>
-        <button id="validate-assessment" class="button button-secondary" type="button">
-          Validar schema
-        </button>
-        <button id="export-json" class="button button-primary" type="button">
-          Exportar JSON
-        </button>
-      </div>
-
-      <p id="validation-status" class="validation-message" data-type="neutral" aria-live="polite">
-        Nenhum JSON carregado.
-      </p>
-    </section>
-
-    <section class="panel principles-panel">
-      <h2>Regras operacionais ativas</h2>
-      <div class="principles-grid">
-        <article>
-          <strong>JSON como verdade</strong>
-          <p>O relatório final será sempre consequência dos dados aprovados.</p>
-        </article>
-        <article>
-          <strong>Revisão humana</strong>
-          <p>Nenhum conteúdo gerado será considerado final sem revisão.</p>
-        </article>
-        <article>
-          <strong>Sem fallback silencioso</strong>
-          <p>Erros, ausências e incompatibilidades permanecem visíveis.</p>
-        </article>
-        <article>
-          <strong>Editável sempre</strong>
-          <p>Mapas, gaps, fluxos, radar e roadmap serão dados, não imagens fixas.</p>
-        </article>
-      </div>
-    </section>
+    <section class="hero panel"><div><p class="eyebrow">MVP 1 · Assessment JSON Builder</p><h1>Transcrição estruturada antes do relatório</h1><p class="description">A transcrição é o insumo. O <strong>assessment.json</strong> revisado é a fonte da verdade. O DOCX será uma saída gerada somente depois da revisão humana.</p></div><div class="master-rule"><strong>Premissa mestre</strong><span>O link oficial do widget nunca muda.</span></div></section>
+    <section class="panel"><div class="section-heading"><div><span class="step">Etapa 1</span><h2>Contexto do assessment</h2></div><span id="saved-status" class="saved-status">Carregando estado...</span></div><div class="form-grid"><label class="field"><span>Cliente</span><input id="client-name" type="text" placeholder="Nome do cliente" /></label><label class="field"><span>Área principal</span><input id="business-area" type="text" placeholder="Ex.: Engenharia de Produto" /></label><label class="field"><span>Tipo de assessment</span><select id="assessment-type"><option value="plm_assessment">PLM Assessment</option><option value="software_assessment">Software Assessment</option><option value="process_assessment">Process Assessment</option><option value="digital_transformation_assessment">Digital Transformation Assessment</option></select></label><label class="field"><span>Modo de geração</span><select id="generation-mode"><option value="conservador">Conservador</option><option value="consultivo">Consultivo</option><option value="executivo">Executivo</option></select></label></div></section>
+    <section class="panel"><div class="section-heading"><div><span class="step">Etapa 2</span><h2>Transcrição</h2></div><span id="transcript-counter" class="counter">0 caracteres · 0 palavras</span></div><div class="source-note">Neste MVP, cole o texto da transcrição. Upload local e seleção manual via bookmark serão adicionados sem alterar o link do widget.</div><label class="field"><span>Texto da transcrição</span><textarea id="transcript-text" class="transcript-editor" placeholder="Cole aqui a transcrição da reunião de assessment..."></textarea></label><div class="actions"><button id="generate-assessment" class="button button-primary" type="button">Gerar assessment.json</button><button id="reset-session" class="button button-danger-ghost" type="button">Limpar sessão</button></div><p id="operation-status" class="status-message">Preencha o contexto e cole uma transcrição para iniciar.</p></section>
+    <section class="panel"><div class="section-heading"><div><span class="step">Etapa 3</span><h2>Revisão do assessment.json</h2></div><span class="tag">Editável</span></div><p class="helper-text">O conteúdo abaixo pode ser alterado manualmente. Depois de editar, salve e valide contra o schema oficial.</p><label class="field"><span>assessment.json</span><textarea id="assessment-json" class="json-editor" placeholder="O JSON gerado aparecerá aqui." spellcheck="false"></textarea></label><div class="actions"><button id="save-json" class="button button-secondary" type="button">Salvar alterações</button><button id="validate-assessment" class="button button-secondary" type="button">Validar schema</button><button id="export-json" class="button button-primary" type="button">Exportar JSON</button></div><p id="validation-status" class="validation-message">Nenhum JSON carregado.</p></section>
+    <section class="panel principles-panel"><h2>Regras operacionais ativas</h2><div class="principles-grid"><article><strong>JSON como verdade</strong><p>O relatório final será sempre consequência dos dados aprovados.</p></article><article><strong>Revisão humana</strong><p>Nenhum conteúdo gerado será considerado final sem revisão.</p></article><article><strong>Sem fallback silencioso</strong><p>Erros, ausências e incompatibilidades permanecem visíveis.</p></article><article><strong>Editável sempre</strong><p>Mapas, gaps, fluxos, radar e roadmap serão dados, não imagens fixas.</p></article></div></section>
   </main>
-
-  <script src="./config.js"></script>
-  <script src="./assessment-state.js"></script>
-  <script src="./assessment-api-client.js"></script>
-  <script src="./assessment-controller.js"></script>
-  <script src="./app.js"></script>
+  <script>
+    (function(){
+      var key='assessment-report-builder.state.v1';
+      var minLen=20;
+      var els={};
+      function id(x){return document.getElementById(x)}
+      function setMsg(el,msg,cls){el.className=el.className.split(' ')[0]+(cls?' '+cls:'');el.textContent=msg}
+      function words(t){t=(t||'').trim();return t?t.split(/\s+/).length:0}
+      function load(){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}}
+      function save(s){s.updatedAt=new Date().toISOString();localStorage.setItem(key,JSON.stringify(s));return s}
+      var state=load();
+      function collect(){return {clientName:els.client.value.trim(),businessArea:els.area.value.trim(),assessmentType:els.type.value,generationMode:els.mode.value,transcriptText:els.transcript.value,assessment:state.assessment||null,validation:state.validation||null}}
+      function persist(){state=save(collect());els.saved.textContent='Salvo automaticamente: '+new Date(state.updatedAt).toLocaleTimeString('pt-BR')}
+      function render(){els.client.value=state.clientName||'';els.area.value=state.businessArea||'';els.type.value=state.assessmentType||'plm_assessment';els.mode.value=state.generationMode||'conservador';els.transcript.value=state.transcriptText||'';els.json.value=state.assessment?JSON.stringify(state.assessment,null,2):'';count();els.saved.textContent=state.updatedAt?'Estado recuperado: '+new Date(state.updatedAt).toLocaleString('pt-BR'):'Nova sessão. O progresso será salvo automaticamente.'}
+      function count(){var t=els.transcript.value;els.counter.textContent=t.length+' caracteres · '+words(t)+' palavras'}
+      async function health(){els.backend.textContent='Verificando backend...';els.backend.className='';try{var r=await fetch('/version',{cache:'no-store'});var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.message||'backend respondeu com erro');els.backend.textContent='Online · v'+d.version+' · '+d.entrypoint;els.backend.className='online'}catch(e){els.backend.textContent='Offline · '+e.message;els.backend.className='offline'}}
+      async function request(url,payload){var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});var d=await r.json();if(!r.ok||d.ok===false)throw new Error(d.message||d.error||'Falha na requisição');return d}
+      async function generate(){try{var s=collect();if(s.transcriptText.trim().length<minLen)throw new Error('A transcrição precisa ter pelo menos '+minLen+' caracteres.');setMsg(els.op,'Gerando assessment.json...','working');var payload={client:{name:s.clientName||null,business_area:s.businessArea||null},transcript_text:s.transcriptText,assessment_type:s.assessmentType,generation_mode:s.generationMode,transcript_source:{type:'manual_text'},template_source:{type:'not_selected'}};var d=await request('/api/assessment/generate',payload);state=save(Object.assign(s,{assessment:d.assessment,validation:d.validation||null}));els.json.value=JSON.stringify(d.assessment,null,2);setMsg(els.op,'assessment.json gerado. Revise antes de usar em relatório.','success');if(d.validation&&d.validation.valid)setMsg(els.val,'Schema válido.','valid')}catch(e){setMsg(els.op,'Falha: '+e.message,'error')}}
+      function parseJson(){if(!els.json.value.trim())throw new Error('O editor está vazio.');return JSON.parse(els.json.value)}
+      function saveJson(){try{var a=parseJson();state=save(Object.assign(collect(),{assessment:a,validation:null}));setMsg(els.op,'Alterações salvas localmente.','success');setMsg(els.val,'JSON alterado. Valide novamente.','warning')}catch(e){setMsg(els.op,'Não foi possível salvar: '+e.message,'error')}}
+      async function validate(){try{setMsg(els.val,'Validando schema...','checking');var a=parseJson();var d=await request('/api/assessment/validate',{assessment:a});state=save(Object.assign(collect(),{assessment:a,validation:d}));if(d.valid)setMsg(els.val,'Schema válido.','valid');else setMsg(els.val,'Schema inválido · '+(d.errors||[]).length+' erro(s).','invalid')}catch(e){setMsg(els.val,'Falha na validação: '+e.message,'invalid')}}
+      function exportJson(){try{var a=parseJson();var blob=new Blob([JSON.stringify(a,null,2)],{type:'application/json'});var url=URL.createObjectURL(blob);var link=document.createElement('a');link.href=url;link.download='assessment.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);setMsg(els.op,'assessment.json exportado.','success')}catch(e){setMsg(els.op,'Não foi possível exportar: '+e.message,'error')}}
+      function reset(){if(confirm('Limpar a sessão local?')){localStorage.removeItem(key);state={};render();setMsg(els.op,'Sessão local limpa.','success');setMsg(els.val,'Nenhum JSON carregado.','')}}
+      document.addEventListener('DOMContentLoaded',function(){els={backend:id('backend-status'),saved:id('saved-status'),client:id('client-name'),area:id('business-area'),type:id('assessment-type'),mode:id('generation-mode'),transcript:id('transcript-text'),counter:id('transcript-counter'),json:id('assessment-json'),op:id('operation-status'),val:id('validation-status')};render();health();['client-name','business-area','assessment-type','generation-mode','transcript-text'].forEach(function(x){id(x).addEventListener('input',function(){count();persist()});id(x).addEventListener('change',persist)});id('check-health').addEventListener('click',health);id('generate-assessment').addEventListener('click',generate);id('save-json').addEventListener('click',saveJson);id('validate-assessment').addEventListener('click',validate);id('export-json').addEventListener('click',exportJson);id('reset-session').addEventListener('click',reset)})
+    })();
+  </script>
 </body>
 </html>
