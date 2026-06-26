@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mouraenderson.github.io/Assessment-Report-Builder/schemas/assessment.schema.json",
+  "title": "Assessment Report Builder Schema",
+  "description": "Contrato oficial do assessment.json. A transcrição é insumo, o JSON aprovado é a fonte da verdade e o relatório é uma saída.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "metadata",
+    "client",
+    "input_sources",
+    "executive_summary",
+    "meeting_summary",
+    "software_map",
+    "process_map",
+    "gap_map",
+    "gap_radar",
+    "flows",
+    "risks",
+    "recommendations",
+    "roadmap",
+    "open_questions",
+    "appendix",
+    "review_status"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assessment_id",
+        "version",
+        "status",
+        "assessment_type",
+        "generation_mode",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "assessment_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "in_review", "approved", "archived"]
+        },
+        "assessment_type": { "type": "string", "minLength": 1 },
+        "generation_mode": {
+          "type": "string",
+          "enum": ["conservador", "consultivo", "executivo"]
+        },
+        "created_at": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "string", "minLength": 1 }
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "business_area"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "business_area": { "type": ["string", "null"] },
+        "assessment_scope": { "type": ["string", "null"] },
+        "participants": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "input_sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript", "template"],
+      "properties": {
+        "transcript": { "$ref": "#/$defs/inputSource" },
+        "template": { "$ref": "#/$defs/inputSource" }
+      }
+    },
+    "executive_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_state",
+        "main_pains",
+        "overall_maturity",
+        "evidence",
+        "confidence"
+      ],
+      "properties": {
+        "current_state": { "type": ["string", "null"] },
+        "main_pains": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "overall_maturity": { "type": ["string", "null"] },
+        "evidence": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "meeting_summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["raw_length", "note"],
+      "properties": {
+        "raw_length": { "type": "integer", "minimum": 0 },
+        "word_count": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string" },
+        "raw_excerpt": { "type": ["string", "null"] }
+      }
+    },
+    "software_map": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/softwareItem" }
+    },
+    "process_map": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/processItem" }
+    },
+    "gap_map": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gapItem" }
+    },
+    "gap_radar": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/radarItem" }
+    },
+    "flows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flowItem" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/riskItem" }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recommendationItem" }
+    },
+    "roadmap": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/roadmapItem" }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/openQuestionItem" }
+    },
+    "appendix": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "review_status": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/reviewState" },
+      "required": [
+        "executive_summary",
+        "software_map",
+        "gap_map",
+        "flows",
+        "recommendations"
+      ]
+    }
+  },
+  "$defs": {
+    "confidence": {
+      "type": "string",
+      "enum": ["Baixa", "Média", "Alta", "Não avaliada"]
+    },
+    "reviewState": {
+      "type": "string",
+      "enum": ["Pendente", "Revisado", "Aprovado", "Rejeitado", "Regenerar"]
+    },
+    "inputSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "filename", "origin_reference", "received_at"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["manual_text", "local_upload", "bookmark_manual", "official_library", "not_selected"]
+        },
+        "filename": { "type": ["string", "null"] },
+        "origin_reference": { "type": ["string", "null"] },
+        "received_at": { "type": ["string", "null"] }
+      }
+    },
+    "evidenceFields": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "evidence": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "classification": {
+          "type": "string",
+          "enum": ["Fato", "Hipótese", "Recomendação", "Pendência"]
+        }
+      }
+    },
+    "softwareItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "area",
+        "software",
+        "usage",
+        "pain_points",
+        "integrations",
+        "risks",
+        "opportunities",
+        "evidence",
+        "confidence"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "area": { "type": ["string", "null"] },
+        "software": { "type": ["string", "null"] },
+        "usage": { "type": ["string", "null"] },
+        "pain_points": { "type": "array", "items": { "type": "string" } },
+        "integrations": { "type": "array", "items": { "type": "string" } },
+        "risks": { "type": "array", "items": { "type": "string" } },
+        "opportunities": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "processItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "owner_area", "systems", "pain_points", "evidence", "confidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": ["string", "null"] },
+        "owner_area": { "type": ["string", "null"] },
+        "systems": { "type": "array", "items": { "type": "string" } },
+        "pain_points": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "gapItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description",
+        "category",
+        "impact",
+        "evidence",
+        "confidence",
+        "classification",
+        "recommendation",
+        "status"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": ["string", "null"] },
+        "category": { "type": ["string", "null"] },
+        "impact": { "type": "string", "enum": ["Baixo", "Médio", "Alto", "Crítico", "Não avaliado"] },
+        "evidence": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "classification": {
+          "type": "string",
+          "enum": ["Fato", "Hipótese", "Pendência"]
+        },
+        "recommendation": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/reviewState" }
+      }
+    },
+    "radarItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "score", "source_gaps"],
+      "properties": {
+        "category": { "type": "string" },
+        "score": { "type": "number", "minimum": 0, "maximum": 5 },
+        "source_gaps": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "flowItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type", "steps", "issues", "evidence", "confidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": ["string", "null"] },
+        "type": { "type": "string", "enum": ["AS-IS", "TO-BE"] },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["order", "area", "activity", "system", "input", "output", "responsible", "issue"],
+            "properties": {
+              "order": { "type": "integer", "minimum": 1 },
+              "area": { "type": ["string", "null"] },
+              "activity": { "type": ["string", "null"] },
+              "system": { "type": ["string", "null"] },
+              "input": { "type": ["string", "null"] },
+              "output": { "type": ["string", "null"] },
+              "responsible": { "type": ["string", "null"] },
+              "issue": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "issues": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "riskItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "probability", "impact", "mitigation", "evidence", "confidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": ["string", "null"] },
+        "probability": { "type": "string", "enum": ["Baixa", "Média", "Alta", "Não avaliada"] },
+        "impact": { "type": "string", "enum": ["Baixo", "Médio", "Alto", "Crítico", "Não avaliado"] },
+        "mitigation": { "type": ["string", "null"] },
+        "evidence": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "recommendationItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description", "priority", "effort", "related_gaps", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "priority": { "type": "string", "enum": ["Baixa", "Média", "Alta", "Crítica", "Não avaliada"] },
+        "effort": { "type": "string", "enum": ["Baixo", "Médio", "Alto", "Não avaliado"] },
+        "related_gaps": { "type": "array", "items": { "type": "string" } },
+        "status": { "$ref": "#/$defs/reviewState" }
+      }
+    },
+    "roadmapItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "phase", "title", "description", "dependencies", "related_recommendations"],
+      "properties": {
+        "id": { "type": "string" },
+        "phase": { "type": ["string", "null"] },
+        "title": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "dependencies": { "type": "array", "items": { "type": "string" } },
+        "related_recommendations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "openQuestionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question", "topic", "responsible", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string" },
+        "topic": { "type": ["string", "null"] },
+        "responsible": { "type": ["string", "null"] },
+        "status": { "type": "string", "enum": ["Aberta", "Respondida", "Descartada"] }
+      }
+    }
+  }
+}
