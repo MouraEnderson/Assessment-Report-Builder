@@ -11,4 +11,6 @@ services:
       - key: PORT
         value: 10000
       - key: SERVICE_VERSION
-        value: 0.3.1
+        value: 0.3.2
+      - key: PUBLIC_BASE_URL
+        value: https://assessment-report-builder.onrender.com
