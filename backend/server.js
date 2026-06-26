@@ -7,7 +7,8 @@ const Ajv2020 = require('ajv/dist/2020');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
-const serviceVersion = process.env.SERVICE_VERSION || '0.3.1';
+const serviceVersion = process.env.SERVICE_VERSION || '0.3.2';
+const publicBaseUrl = process.env.PUBLIC_BASE_URL || 'https://assessment-report-builder.onrender.com';
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -24,7 +25,7 @@ const allowedSourceTypes = new Set([
   'not_selected'
 ]);
 
-const dashboardFrameCss = `
+const appFrameCss = `
 <style data-dashboard-frame-scroll="true">
 html,
 body {
@@ -50,14 +51,30 @@ body {
   width: 100% !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  padding: 32px 16px 64px !important;
+  padding: 24px 12px 48px !important;
   scrollbar-gutter: stable;
 }
 
 .panel {
-  width: min(1180px, calc(100% - 32px)) !important;
+  width: min(1100px, calc(100% - 24px)) !important;
   margin-left: auto !important;
   margin-right: auto !important;
+}
+
+.hero {
+  padding: 22px !important;
+}
+
+h1 {
+  font-size: clamp(30px, 3.6vw, 46px) !important;
+}
+
+.transcript-editor {
+  min-height: 180px !important;
+}
+
+.json-editor {
+  min-height: 320px !important;
 }
 
 @media (max-width: 800px) {
@@ -70,6 +87,10 @@ body {
 
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false }));
+app.use((req, res, next) => {
+  res.removeHeader('X-Frame-Options');
+  next();
+});
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
@@ -92,9 +113,34 @@ function readFrontendFile(filename) {
   return fs.readFileSync(absolutePath, 'utf8');
 }
 
-function sendWidget(req, res) {
+function renderWidgetShell() {
+  const appUrl = `${publicBaseUrl.replace(/\/$/, '')}/app`;
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Assessment Report Builder</title>
+</head>
+<body style="margin:0;width:100%;height:100%;overflow:hidden;background:#f4f6f9;">
+  <iframe
+    title="Assessment Report Builder"
+    src="${appUrl}"
+    style="display:block;width:100%;height:calc(100vh - 150px);min-height:560px;border:0;background:#f4f6f9;"
+    allow="clipboard-read; clipboard-write"
+  ></iframe>
+</body>
+</html>`;
+}
+
+function sendWidgetShell(req, res) {
+  applyNoCacheHeaders(res);
+  return res.type('html').status(200).send(renderWidgetShell());
+}
+
+function sendApp(req, res) {
   try {
-    const html = readFrontendFile('index.html').replace('</head>', `${dashboardFrameCss}</head>`);
+    const html = readFrontendFile('index.html').replace('</head>', `${appFrameCss}</head>`);
     applyNoCacheHeaders(res);
     return res.type('html').status(200).send(html);
   } catch (error) {
@@ -112,6 +158,8 @@ function healthPayload() {
     service: 'assessment-report-builder-backend',
     version: serviceVersion,
     entrypoint: 'server.js',
+    public_entrypoint: '/',
+    app_route: '/app',
     environment: process.env.NODE_ENV || 'development',
     schema: 'assessment.schema.json'
   };
@@ -214,8 +262,9 @@ function createAssessmentDraft(input) {
   };
 }
 
-app.get('/', sendWidget);
-app.get('/index.html', sendWidget);
+app.get('/', sendWidgetShell);
+app.get('/index.html', sendWidgetShell);
+app.get('/app', sendApp);
 
 app.get('/health', (req, res) => {
   res.status(200).json(healthPayload());
