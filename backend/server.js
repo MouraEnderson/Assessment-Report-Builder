@@ -7,8 +7,7 @@ const Ajv2020 = require('ajv/dist/2020');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
-const serviceVersion = process.env.SERVICE_VERSION || '0.3.2';
-const publicBaseUrl = process.env.PUBLIC_BASE_URL || 'https://assessment-report-builder.onrender.com';
+const serviceVersion = process.env.SERVICE_VERSION || '0.4.0';
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -25,72 +24,8 @@ const allowedSourceTypes = new Set([
   'not_selected'
 ]);
 
-const appFrameCss = `
-<style data-dashboard-frame-scroll="true">
-html,
-body {
-  width: 100% !important;
-  height: 100% !important;
-  margin: 0 !important;
-  overflow: hidden !important;
-}
-
-body {
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-.topbar {
-  flex: 0 0 auto !important;
-  position: relative !important;
-}
-
-.app-shell {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  width: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  padding: 24px 12px 48px !important;
-  scrollbar-gutter: stable;
-}
-
-.panel {
-  width: min(1100px, calc(100% - 24px)) !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-}
-
-.hero {
-  padding: 22px !important;
-}
-
-h1 {
-  font-size: clamp(30px, 3.6vw, 46px) !important;
-}
-
-.transcript-editor {
-  min-height: 180px !important;
-}
-
-.json-editor {
-  min-height: 320px !important;
-}
-
-@media (max-width: 800px) {
-  .panel {
-    width: 100% !important;
-  }
-}
-</style>
-`;
-
 app.disable('x-powered-by');
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use((req, res, next) => {
-  res.removeHeader('X-Frame-Options');
-  next();
-});
+app.use(helmet({ contentSecurityPolicy: false, frameguard: false }));
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
@@ -101,55 +36,22 @@ function applyNoCacheHeaders(res) {
   res.set('Expires', '0');
 }
 
-function readFrontendFile(filename) {
-  const absolutePath = path.join(frontendPath, filename);
+function sendFrontendFile(filename, contentType) {
+  return function (req, res) {
+    const absolutePath = path.join(frontendPath, filename);
 
-  if (!fs.existsSync(absolutePath)) {
-    const error = new Error(`Arquivo não encontrado no container: ${filename}`);
-    error.code = 'FRONTEND_FILE_MISSING';
-    throw error;
-  }
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(500).json({
+        ok: false,
+        error: 'FRONTEND_FILE_MISSING',
+        message: `Arquivo não encontrado no container: ${filename}`
+      });
+    }
 
-  return fs.readFileSync(absolutePath, 'utf8');
-}
-
-function renderWidgetShell() {
-  const appUrl = `${publicBaseUrl.replace(/\/$/, '')}/app`;
-  return `<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Assessment Report Builder</title>
-</head>
-<body style="margin:0;width:100%;height:100%;overflow:hidden;background:#f4f6f9;">
-  <iframe
-    title="Assessment Report Builder"
-    src="${appUrl}"
-    style="display:block;width:100%;height:calc(100vh - 150px);min-height:560px;border:0;background:#f4f6f9;"
-    allow="clipboard-read; clipboard-write"
-  ></iframe>
-</body>
-</html>`;
-}
-
-function sendWidgetShell(req, res) {
-  applyNoCacheHeaders(res);
-  return res.type('html').status(200).send(renderWidgetShell());
-}
-
-function sendApp(req, res) {
-  try {
-    const html = readFrontendFile('index.html').replace('</head>', `${appFrameCss}</head>`);
     applyNoCacheHeaders(res);
-    return res.type('html').status(200).send(html);
-  } catch (error) {
-    return res.status(500).json({
-      ok: false,
-      error: error.code || 'WIDGET_RENDER_FAILED',
-      message: error.message
-    });
-  }
+    res.type(contentType);
+    return res.sendFile(absolutePath);
+  };
 }
 
 function healthPayload() {
@@ -158,8 +60,9 @@ function healthPayload() {
     service: 'assessment-report-builder-backend',
     version: serviceVersion,
     entrypoint: 'server.js',
+    widget_runtime: '3DDashboard Additional App',
     public_entrypoint: '/',
-    app_route: '/app',
+    authentication_boundary: '3DEXPERIENCE session stays in frontend WAFData; Render never receives CAS/cookies/tokens',
     environment: process.env.NODE_ENV || 'development',
     schema: 'assessment.schema.json'
   };
@@ -262,9 +165,11 @@ function createAssessmentDraft(input) {
   };
 }
 
-app.get('/', sendWidgetShell);
-app.get('/index.html', sendWidgetShell);
-app.get('/app', sendApp);
+app.get('/', sendFrontendFile('widget.html', 'html'));
+app.get('/index.html', sendFrontendFile('widget.html', 'html'));
+app.get('/widget.html', sendFrontendFile('widget.html', 'html'));
+app.get('/assets/css/assessment.css', sendFrontendFile(path.join('assets', 'css', 'assessment.css'), 'css'));
+app.get('/assets/js/assessment-runtime.js', sendFrontendFile(path.join('assets', 'js', 'assessment-runtime.js'), 'application/javascript'));
 
 app.get('/health', (req, res) => {
   res.status(200).json(healthPayload());
