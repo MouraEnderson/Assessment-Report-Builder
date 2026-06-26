@@ -1,16 +1,26 @@
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const Ajv2020 = require('ajv/dist/2020');
 
 const app = express();
 const port = process.env.PORT || 10000;
-const serviceVersion = process.env.SERVICE_VERSION || '0.1.0';
+const serviceVersion = process.env.SERVICE_VERSION || '0.2.0';
 
 const allowedOrigins = (process.env.ASSESSMENT_ALLOWED_ORIGINS || '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+const schemaPath = path.join(__dirname, 'schemas', 'assessment.schema.json');
+const assessmentSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+const ajv = new Ajv2020({
+  allErrors: true,
+  strict: false
+});
+const validateAssessmentSchema = ajv.compile(assessmentSchema);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '5mb' }));
@@ -31,26 +41,126 @@ app.use(
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use(express.static(frontendPath));
 
-app.get('/health', (req, res) => {
-  res.status(200).json({
+function healthPayload() {
+  return {
     ok: true,
     service: 'assessment-report-builder-backend',
     version: serviceVersion,
-    environment: process.env.NODE_ENV || 'development'
-  });
+    environment: process.env.NODE_ENV || 'development',
+    schema: 'assessment.schema.json'
+  };
+}
+
+function normalizeValidationErrors(errors = []) {
+  return errors.map((error) => ({
+    path: error.instancePath || '/',
+    keyword: error.keyword,
+    message: error.message || 'Erro de validação.',
+    params: error.params
+  }));
+}
+
+function validateAssessment(assessment) {
+  const valid = validateAssessmentSchema(assessment);
+  return {
+    valid: Boolean(valid),
+    errors: valid ? [] : normalizeValidationErrors(validateAssessmentSchema.errors),
+    warnings: []
+  };
+}
+
+function normalizeInputSource(source, fallbackType) {
+  const safeSource = source && typeof source === 'object' ? source : {};
+  return {
+    type: safeSource.type || fallbackType,
+    filename: safeSource.filename || null,
+    origin_reference: safeSource.origin_reference || null,
+    received_at: safeSource.type && safeSource.type !== 'not_selected'
+      ? new Date().toISOString()
+      : null
+  };
+}
+
+function createAssessmentDraft(input) {
+  const transcriptText = input.transcript_text.trim();
+  const now = new Date().toISOString();
+  const client = input.client && typeof input.client === 'object' ? input.client : {};
+  const wordCount = transcriptText.split(/\s+/).filter(Boolean).length;
+
+  return {
+    metadata: {
+      assessment_id: `ASSESS-${Date.now()}`,
+      version: '0.1',
+      status: 'draft',
+      assessment_type: input.assessment_type || 'plm_assessment',
+      generation_mode: input.generation_mode || 'consultivo',
+      created_at: now,
+      updated_at: now
+    },
+    client: {
+      name: client.name || null,
+      business_area: client.business_area || null,
+      assessment_scope: null,
+      participants: []
+    },
+    input_sources: {
+      transcript: normalizeInputSource(input.transcript_source, 'manual_text'),
+      template: normalizeInputSource(input.template_source, 'not_selected')
+    },
+    executive_summary: {
+      current_state: null,
+      main_pains: [],
+      overall_maturity: null,
+      evidence: null,
+      confidence: 'Não avaliada'
+    },
+    meeting_summary: {
+      raw_length: transcriptText.length,
+      word_count: wordCount,
+      note: 'Estrutura inicial criada sem conclusões automáticas. A extração com IA será adicionada em fase posterior e deverá manter evidências.',
+      raw_excerpt: transcriptText.slice(0, 500)
+    },
+    software_map: [],
+    process_map: [],
+    gap_map: [],
+    gap_radar: [],
+    flows: [],
+    risks: [],
+    recommendations: [],
+    roadmap: [],
+    open_questions: [],
+    appendix: {
+      transcript_processing_status: 'received',
+      ai_extraction_status: 'not_implemented'
+    },
+    review_status: {
+      executive_summary: 'Pendente',
+      software_map: 'Pendente',
+      gap_map: 'Pendente',
+      flows: 'Pendente',
+      recommendations: 'Pendente'
+    }
+  };
+}
+
+app.get('/health', (req, res) => {
+  res.status(200).json(healthPayload());
 });
 
 app.get('/api/health', (req, res) => {
+  res.status(200).json(healthPayload());
+});
+
+app.get('/api/assessment/schema', (req, res) => {
   res.status(200).json({
     ok: true,
-    service: 'assessment-report-builder-backend',
-    version: serviceVersion,
-    environment: process.env.NODE_ENV || 'development'
+    schema: assessmentSchema
   });
 });
 
 app.post('/api/assessment/generate', (req, res) => {
-  const { transcript_text: transcriptText, assessment_type: assessmentType = 'plm_assessment', generation_mode: generationMode = 'consultivo' } = req.body || {};
+  const input = req.body || {};
+  const transcriptText = input.transcript_text;
 
   if (!transcriptText || typeof transcriptText !== 'string' || transcriptText.trim().length < 20) {
     return res.status(400).json({
@@ -60,59 +170,53 @@ app.post('/api/assessment/generate', (req, res) => {
     });
   }
 
-  const now = new Date().toISOString();
+  const allowedModes = ['conservador', 'consultivo', 'executivo'];
+  if (input.generation_mode && !allowedModes.includes(input.generation_mode)) {
+    return res.status(400).json({
+      ok: false,
+      error: 'INVALID_GENERATION_MODE',
+      message: `Modo de geração inválido: ${input.generation_mode}`
+    });
+  }
+
+  const assessment = createAssessmentDraft(input);
+  const validation = validateAssessment(assessment);
+
+  if (!validation.valid) {
+    console.error('[assessment-backend] Internal schema generation error:', validation.errors);
+    return res.status(500).json({
+      ok: false,
+      error: 'GENERATED_ASSESSMENT_INVALID',
+      message: 'O backend gerou um assessment incompatível com o schema oficial.',
+      validation
+    });
+  }
 
   return res.status(200).json({
     ok: true,
-    assessment: {
-      metadata: {
-        assessment_id: `ASSESS-${Date.now()}`,
-        version: '0.1',
-        status: 'draft',
-        assessment_type: assessmentType,
-        generation_mode: generationMode,
-        created_at: now,
-        updated_at: now
-      },
-      client: {
-        name: null,
-        business_area: null
-      },
-      input_sources: {
-        transcript: {
-          type: 'manual_text',
-          received_at: now
-        }
-      },
-      executive_summary: {
-        current_state: 'MVP técnico ativo. A extração com IA será implementada na próxima etapa.',
-        main_pains: [],
-        overall_maturity: null,
-        evidence: null,
-        confidence: 'Baixa'
-      },
-      meeting_summary: {
-        raw_length: transcriptText.length,
-        note: 'Transcrição recebida com sucesso pelo backend.'
-      },
-      software_map: [],
-      process_map: [],
-      gap_map: [],
-      gap_radar: [],
-      flows: [],
-      risks: [],
-      recommendations: [],
-      roadmap: [],
-      open_questions: [],
-      appendix: {},
-      review_status: {
-        executive_summary: 'Pendente',
-        software_map: 'Pendente',
-        gap_map: 'Pendente',
-        flows: 'Pendente',
-        recommendations: 'Pendente'
-      }
-    }
+    assessment,
+    validation
+  });
+});
+
+app.post('/api/assessment/validate', (req, res) => {
+  const assessment = req.body?.assessment;
+
+  if (!assessment || typeof assessment !== 'object' || Array.isArray(assessment)) {
+    return res.status(400).json({
+      ok: false,
+      error: 'ASSESSMENT_REQUIRED',
+      message: 'Envie um objeto assessment para validação.'
+    });
+  }
+
+  const validation = validateAssessment(assessment);
+
+  return res.status(200).json({
+    ok: true,
+    valid: validation.valid,
+    errors: validation.errors,
+    warnings: validation.warnings
   });
 });
 
