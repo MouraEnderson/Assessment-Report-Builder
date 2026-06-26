@@ -5,11 +5,11 @@
 Implementar o primeiro fluxo operacional do Assessment Report Builder:
 
 ```text
-Usuário informa contexto
+Usuário informa contexto no widget Additional App
         ↓
 Usuário cola a transcrição
         ↓
-Backend cria assessment.json no schema oficial
+Backend Render cria assessment.json no schema oficial
         ↓
 Usuário edita o JSON
         ↓
@@ -28,7 +28,7 @@ Este MVP não realiza extração inteligente com IA ainda. Ele estabelece a arqu
 https://assessment-report-builder.onrender.com/
 ```
 
-Este é o único link operacional oficial do widget.
+Este é o único link operacional oficial do widget e deve ser usado como **3DDashboard Additional App**.
 
 ---
 
@@ -42,10 +42,14 @@ Este é o único link operacional oficial do widget.
 6. Erros de validação permanecem visíveis.
 7. Não existe fallback silencioso.
 8. O usuário pode editar e exportar o JSON.
-9. O estado da sessão é preservado no navegador.
+9. O estado da sessão é preservado no navegador/widget.
 10. O frontend não contém chaves privadas.
 11. Não existe query string oficial.
 12. Não existe entrypoint paralelo.
+13. O runtime oficial é 3DDashboard Additional App.
+14. Web Page Reader não é runtime oficial.
+15. Render não executa CAS.
+16. A sessão 3DEXPERIENCE fica no frontend via WAFData.
 
 ---
 
@@ -53,12 +57,15 @@ Este é o único link operacional oficial do widget.
 
 ```text
 1 link oficial: https://assessment-report-builder.onrender.com/
-1 frontend oficial: frontend/index.html
+1 runtime oficial: 3DDashboard Additional App
+1 frontend oficial: frontend/widget.html
 1 backend oficial: backend/server.js
 1 start oficial: npm start → node server.js
-1 fluxo operacional: / → widget
+1 fluxo operacional: / → widget Additional App
 0 entrypoints paralelos
 0 query string oficial
+0 iframe shell
+0 CAS no backend
 0 fallback silencioso
 ```
 
@@ -69,10 +76,12 @@ Este é o único link operacional oficial do widget.
 ### Frontend
 
 ```text
-frontend/index.html
+frontend/widget.html
+frontend/assets/css/assessment.css
+frontend/assets/js/assessment-runtime.js
 ```
 
-O frontend está concentrado em arquivo único no MVP para eliminar ambiguidade de carregamento e evitar dependência de múltiplos arquivos externos dentro do 3DEXPERIENCE.
+O frontend segue o padrão de Additional App: XHTML de entrada, CSS externo e JavaScript externo. O runtime monta a interface no elemento `#assessment-root`.
 
 ### Backend
 
@@ -103,11 +112,34 @@ backend/server.js
 Responsabilidades atuais:
 
 - servir o widget na rota `/`;
+- servir CSS e JS externos do widget;
 - responder `/health`;
 - responder `/version`;
 - gerar o rascunho de `assessment.json`;
 - validar o JSON no backend;
-- mostrar erros sem fallback silencioso.
+- mostrar erros sem fallback silencioso;
+- não autenticar no 3DEXPERIENCE.
+
+---
+
+## Runtime 3DEXPERIENCE
+
+O runtime oficial do frontend é:
+
+```text
+frontend/assets/js/assessment-runtime.js
+```
+
+Responsabilidades atuais:
+
+- montar UI;
+- verificar backend Render;
+- verificar WAFData;
+- preservar estado local;
+- gerar assessment.json;
+- validar assessment.json;
+- exportar assessment.json;
+- futuramente acessar bookmark/documentos via sessão logada do 3DEXPERIENCE.
 
 ---
 
@@ -146,6 +178,9 @@ Limitação atual:
 
 ```text
 GET /
+GET /widget.html
+GET /assets/css/assessment.css
+GET /assets/js/assessment-runtime.js
 ```
 
 ### Verificação de serviço
@@ -184,48 +219,25 @@ backend/schemas/assessment.schema.json
 
 ---
 
-## Schema inicial
-
-O contrato inclui:
-
-```text
-metadata
-client
-input_sources
-executive_summary
-meeting_summary
-software_map
-process_map
-gap_map
-gap_radar
-flows
-risks
-recommendations
-roadmap
-open_questions
-appendix
-review_status
-```
-
-Entidades como softwares, gaps, fluxos, riscos e recomendações contêm campos próprios para evidência, confiança, classificação e estado de revisão quando aplicável.
-
----
-
 ## Critérios de teste do MVP 1
 
 O MVP 1 será considerado tecnicamente ativo quando:
 
 1. O Render concluir o build do Dockerfile.
-2. `GET /version` retornar `entrypoint: server.js`.
+2. `GET /version` retornar `version: 0.4.0`.
 3. `GET /health` retornar HTTP 200.
 4. `GET /` abrir o widget pelo link oficial limpo.
-5. O status do backend aparecer como online.
-6. O usuário conseguir colar uma transcrição.
-7. O backend retornar um JSON válido.
-8. O frontend permitir editar o JSON.
-9. A validação detectar um JSON inválido.
-10. A exportação gerar um arquivo `.json`.
-11. O refresh da página recuperar o estado salvo.
+5. O link estiver adicionado como Additional App.
+6. CSS externo carregar.
+7. JS externo executar.
+8. O status do backend aparecer como online.
+9. O status da sessão 3DX mostrar WAFData disponível ou erro claro.
+10. O usuário conseguir colar uma transcrição.
+11. O backend retornar um JSON válido.
+12. O frontend permitir editar o JSON.
+13. A validação detectar um JSON inválido.
+14. A exportação gerar um arquivo `.json`.
+15. O refresh da página recuperar o estado salvo.
 
 ---
 
@@ -266,7 +278,7 @@ O MVP 1 será considerado tecnicamente ativo quando:
 ## Regra de evolução
 
 ```text
-Primeiro provar infraestrutura e contrato.
+Primeiro provar runtime Additional App e contrato.
 Depois provar edição e revisão.
 Depois adicionar extração inteligente.
 Por último gerar o documento final.
