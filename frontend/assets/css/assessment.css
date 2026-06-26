@@ -1,0 +1,355 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #172033;
+  background: #f4f6f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.assessment-root,
+.assessment-app {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.assessment-app {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, #eef2f8 0, #f7f8fb 220px, #f4f6f9 100%);
+}
+
+.assessment-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid #dfe5ee;
+}
+
+.assessment-brand-kicker {
+  margin: 0;
+  color: #637084;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.assessment-brand-title {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.assessment-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.assessment-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #edf1f7;
+  color: #4b586d;
+  white-space: nowrap;
+}
+
+.assessment-pill.ok {
+  color: #147a42;
+  background: #eaf7ef;
+}
+
+.assessment-pill.warn {
+  color: #9b6700;
+  background: #fff8e8;
+}
+
+.assessment-pill.err {
+  color: #b42318;
+  background: #fff0ee;
+}
+
+.assessment-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  scrollbar-gutter: stable;
+}
+
+.assessment-panel {
+  width: min(1040px, 100%);
+  margin: 0 auto 14px;
+  padding: 18px;
+  border: 1px solid #dfe5ee;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(22, 37, 64, 0.07);
+}
+
+.assessment-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 18px;
+  align-items: center;
+}
+
+.assessment-eyebrow,
+.assessment-step {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: #1f5bd8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.assessment-title {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 3.4vw, 44px);
+  line-height: 1.03;
+  letter-spacing: -0.035em;
+}
+
+.assessment-description {
+  margin: 0;
+  color: #4d5a6e;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.assessment-master-rule {
+  padding: 18px;
+  border-radius: 14px;
+  color: #ffffff;
+  background: linear-gradient(145deg, #163d91, #1f5bd8);
+}
+
+.assessment-master-rule strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.assessment-master-rule span {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.assessment-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.assessment-section-heading h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.assessment-muted {
+  color: #637084;
+  font-size: 12px;
+}
+
+.assessment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.assessment-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.assessment-field span {
+  font-size: 12px;
+  font-weight: 800;
+  color: #354156;
+}
+
+.assessment-input,
+.assessment-select,
+.assessment-textarea {
+  width: 100%;
+  border: 1px solid #cdd6e3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+}
+
+.assessment-input,
+.assessment-select {
+  min-height: 40px;
+  padding: 0 11px;
+}
+
+.assessment-textarea {
+  min-height: 150px;
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.assessment-json {
+  min-height: 280px;
+  color: #e5edf9;
+  background: #111827;
+  border-color: #263348;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+}
+
+.assessment-note {
+  margin-bottom: 14px;
+  padding: 11px 12px;
+  border-left: 4px solid #1f5bd8;
+  border-radius: 8px;
+  background: #f3f7ff;
+  color: #637084;
+  line-height: 1.45;
+}
+
+.assessment-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.assessment-button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #ffffff;
+  color: #263247;
+}
+
+.assessment-button.primary {
+  color: #ffffff;
+  background: #1f5bd8;
+}
+
+.assessment-button.secondary {
+  border-color: #cdd6e3;
+}
+
+.assessment-button.danger {
+  color: #b42318;
+  border-color: #f0c9c4;
+}
+
+.assessment-message {
+  margin: 12px 0 0;
+  padding: 11px 12px;
+  border-radius: 9px;
+  color: #4f5d72;
+  background: #f7f9fc;
+  line-height: 1.4;
+}
+
+.assessment-message.success {
+  color: #147a42;
+  background: #ebf8f0;
+}
+
+.assessment-message.error {
+  color: #b42318;
+  background: #fff0ee;
+}
+
+.assessment-message.warning {
+  color: #9b6700;
+  background: #fff8e8;
+}
+
+.assessment-message.working {
+  color: #1f5bd8;
+  background: #eef4ff;
+}
+
+.assessment-principles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.assessment-principle {
+  padding: 14px;
+  border: 1px solid #dfe5ee;
+  border-radius: 12px;
+  background: #f7f9fc;
+}
+
+.assessment-principle strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.assessment-principle p {
+  margin: 0;
+  color: #637084;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.boot-message {
+  padding: 18px;
+  color: #4d5a6e;
+}
+
+@media (max-width: 820px) {
+  .assessment-topbar,
+  .assessment-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .assessment-hero,
+  .assessment-grid,
+  .assessment-principles {
+    grid-template-columns: 1fr;
+  }
+
+  .assessment-scroll {
+    padding: 10px;
+  }
+
+  .assessment-panel {
+    padding: 14px;
+  }
+}
