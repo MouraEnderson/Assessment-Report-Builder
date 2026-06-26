@@ -6,21 +6,16 @@ const helmet = require('helmet');
 const Ajv2020 = require('ajv/dist/2020');
 
 const app = express();
-const port = process.env.PORT || 10000;
-const serviceVersion = process.env.SERVICE_VERSION || '0.2.0';
+const port = Number(process.env.PORT || 10000);
+const serviceVersion = process.env.SERVICE_VERSION || '0.3.0';
 
-const allowedOrigins = (process.env.ASSESSMENT_ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-const schemaPath = path.join(__dirname, 'schemas', 'assessment.schema.json');
+const frontendPath = path.resolve(__dirname, '..', 'frontend');
+const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
 const assessmentSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-const ajv = new Ajv2020({
-  allErrors: true,
-  strict: false
-});
-const validateAssessmentSchema = ajv.compile(assessmentSchema);
+
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+const validateSchema = ajv.compile(assessmentSchema);
+
 const allowedSourceTypes = new Set([
   'manual_text',
   'local_upload',
@@ -29,30 +24,38 @@ const allowedSourceTypes = new Set([
   'not_selected'
 ]);
 
+app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+function sendFileFromFrontend(filename, contentType) {
+  return (req, res) => {
+    const absolutePath = path.join(frontendPath, filename);
 
-      return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(500).json({
+        ok: false,
+        error: 'FRONTEND_FILE_MISSING',
+        message: `Arquivo não encontrado no container: ${filename}`
+      });
     }
-  })
-);
 
-const frontendPath = path.join(__dirname, '..', 'frontend');
-app.use(express.static(frontendPath));
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.type(contentType);
+    return res.sendFile(absolutePath);
+  };
+}
 
 function healthPayload() {
   return {
     ok: true,
     service: 'assessment-report-builder-backend',
     version: serviceVersion,
+    entrypoint: 'server.js',
     environment: process.env.NODE_ENV || 'development',
     schema: 'assessment.schema.json'
   };
@@ -68,10 +71,10 @@ function normalizeValidationErrors(errors = []) {
 }
 
 function validateAssessment(assessment) {
-  const valid = validateAssessmentSchema(assessment);
+  const valid = validateSchema(assessment);
   return {
     valid: Boolean(valid),
-    errors: valid ? [] : normalizeValidationErrors(validateAssessmentSchema.errors),
+    errors: valid ? [] : normalizeValidationErrors(validateSchema.errors),
     warnings: []
   };
 }
@@ -80,16 +83,16 @@ function normalizeOptionalString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function normalizeInputSource(source, fallbackType) {
+function normalizeSource(source, fallbackType) {
   const safeSource = source && typeof source === 'object' ? source : {};
   const requestedType = typeof safeSource.type === 'string' ? safeSource.type : fallbackType;
-  const normalizedType = allowedSourceTypes.has(requestedType) ? requestedType : fallbackType;
+  const type = allowedSourceTypes.has(requestedType) ? requestedType : fallbackType;
 
   return {
-    type: normalizedType,
+    type,
     filename: normalizeOptionalString(safeSource.filename),
     origin_reference: normalizeOptionalString(safeSource.origin_reference),
-    received_at: normalizedType !== 'not_selected' ? new Date().toISOString() : null
+    received_at: type === 'not_selected' ? null : new Date().toISOString()
   };
 }
 
@@ -116,8 +119,8 @@ function createAssessmentDraft(input) {
       participants: []
     },
     input_sources: {
-      transcript: normalizeInputSource(input.transcript_source, 'manual_text'),
-      template: normalizeInputSource(input.template_source, 'not_selected')
+      transcript: normalizeSource(input.transcript_source, 'manual_text'),
+      template: normalizeSource(input.template_source, 'not_selected')
     },
     executive_summary: {
       current_state: null,
@@ -129,7 +132,7 @@ function createAssessmentDraft(input) {
     meeting_summary: {
       raw_length: transcriptText.length,
       word_count: wordCount,
-      note: 'Estrutura inicial criada sem conclusões automáticas. A extração com IA será adicionada em fase posterior e deverá manter evidências.',
+      note: 'Estrutura inicial criada sem conclusões automáticas.',
       raw_excerpt: transcriptText.slice(0, 500)
     },
     software_map: [],
@@ -155,6 +158,9 @@ function createAssessmentDraft(input) {
   };
 }
 
+app.get('/', sendFileFromFrontend('index.html', 'html'));
+app.get('/index.html', sendFileFromFrontend('index.html', 'html'));
+
 app.get('/health', (req, res) => {
   res.status(200).json(healthPayload());
 });
@@ -163,11 +169,12 @@ app.get('/api/health', (req, res) => {
   res.status(200).json(healthPayload());
 });
 
+app.get('/version', (req, res) => {
+  res.status(200).json(healthPayload());
+});
+
 app.get('/api/assessment/schema', (req, res) => {
-  res.status(200).json({
-    ok: true,
-    schema: assessmentSchema
-  });
+  res.status(200).json({ ok: true, schema: assessmentSchema });
 });
 
 app.post('/api/assessment/generate', (req, res) => {
@@ -195,7 +202,6 @@ app.post('/api/assessment/generate', (req, res) => {
   const validation = validateAssessment(assessment);
 
   if (!validation.valid) {
-    console.error('[assessment-backend] Internal schema generation error:', validation.errors);
     return res.status(500).json({
       ok: false,
       error: 'GENERATED_ASSESSMENT_INVALID',
@@ -204,11 +210,7 @@ app.post('/api/assessment/generate', (req, res) => {
     });
   }
 
-  return res.status(200).json({
-    ok: true,
-    assessment,
-    validation
-  });
+  return res.status(200).json({ ok: true, assessment, validation });
 });
 
 app.post('/api/assessment/validate', (req, res) => {
@@ -223,13 +225,7 @@ app.post('/api/assessment/validate', (req, res) => {
   }
 
   const validation = validateAssessment(assessment);
-
-  return res.status(200).json({
-    ok: true,
-    valid: validation.valid,
-    errors: validation.errors,
-    warnings: validation.warnings
-  });
+  return res.status(200).json({ ok: true, ...validation });
 });
 
 app.use((req, res) => {
@@ -240,15 +236,15 @@ app.use((req, res) => {
   });
 });
 
-app.use((err, req, res, next) => {
-  console.error('[assessment-backend:error]', err);
+app.use((error, req, res, next) => {
+  console.error('[assessment-report-builder]', error);
   res.status(500).json({
     ok: false,
     error: 'INTERNAL_SERVER_ERROR',
-    message: err.message || 'Erro interno no backend.'
+    message: error.message || 'Erro interno no backend.'
   });
 });
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Assessment Report Builder backend running on port ${port}`);
+  console.log(`Assessment Report Builder v${serviceVersion} running on port ${port} using server.js`);
 });
