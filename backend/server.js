@@ -7,7 +7,7 @@ const Ajv2020 = require('ajv/dist/2020');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
-const serviceVersion = process.env.SERVICE_VERSION || '0.3.0';
+const serviceVersion = process.env.SERVICE_VERSION || '0.3.1';
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -24,30 +24,86 @@ const allowedSourceTypes = new Set([
   'not_selected'
 ]);
 
+const dashboardFrameCss = `
+<style data-dashboard-frame-scroll="true">
+html,
+body {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+body {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.topbar {
+  flex: 0 0 auto !important;
+  position: relative !important;
+}
+
+.app-shell {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 32px 16px 64px !important;
+  scrollbar-gutter: stable;
+}
+
+.panel {
+  width: min(1180px, calc(100% - 32px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+@media (max-width: 800px) {
+  .panel {
+    width: 100% !important;
+  }
+}
+</style>
+`;
+
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-function sendFileFromFrontend(filename, contentType) {
-  return (req, res) => {
-    const absolutePath = path.join(frontendPath, filename);
+function applyNoCacheHeaders(res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+}
 
-    if (!fs.existsSync(absolutePath)) {
-      return res.status(500).json({
-        ok: false,
-        error: 'FRONTEND_FILE_MISSING',
-        message: `Arquivo não encontrado no container: ${filename}`
-      });
-    }
+function readFrontendFile(filename) {
+  const absolutePath = path.join(frontendPath, filename);
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.type(contentType);
-    return res.sendFile(absolutePath);
-  };
+  if (!fs.existsSync(absolutePath)) {
+    const error = new Error(`Arquivo não encontrado no container: ${filename}`);
+    error.code = 'FRONTEND_FILE_MISSING';
+    throw error;
+  }
+
+  return fs.readFileSync(absolutePath, 'utf8');
+}
+
+function sendWidget(req, res) {
+  try {
+    const html = readFrontendFile('index.html').replace('</head>', `${dashboardFrameCss}</head>`);
+    applyNoCacheHeaders(res);
+    return res.type('html').status(200).send(html);
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error.code || 'WIDGET_RENDER_FAILED',
+      message: error.message
+    });
+  }
 }
 
 function healthPayload() {
@@ -158,8 +214,8 @@ function createAssessmentDraft(input) {
   };
 }
 
-app.get('/', sendFileFromFrontend('index.html', 'html'));
-app.get('/index.html', sendFileFromFrontend('index.html', 'html'));
+app.get('/', sendWidget);
+app.get('/index.html', sendWidget);
 
 app.get('/health', (req, res) => {
   res.status(200).json(healthPayload());
