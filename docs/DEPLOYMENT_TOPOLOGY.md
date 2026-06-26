@@ -2,21 +2,38 @@
 
 ## Decisão arquitetural do MVP
 
-Para cumprir a premissa mestre de que **o link do widget nunca pode mudar**, o MVP utilizará um único serviço web no Render como entrypoint externo.
+Para cumprir a premissa mestre de que **o link do widget nunca pode mudar**, o MVP utiliza um único serviço web no Render como entrypoint externo.
 
 ```text
 3DEXPERIENCE / 3DDashboard
             ↓
-URL pública fixa do Render
+https://assessment-report-builder.onrender.com/
             ↓
-Frontend estático + API backend
+frontend/index.html + backend/server.js
             ↓
 assessment.json / validação / serviços futuros
 ```
 
+## Link oficial
+
+```text
+https://assessment-report-builder.onrender.com/
+```
+
+Este é o único link operacional oficial do widget.
+
+Não usar como link oficial:
+
+```text
+https://assessment-report-builder.onrender.com/?v=...
+https://assessment-report-builder.onrender.com/index.html
+https://assessment-report-builder.onrender.com/frontend/index.html
+https://dashboard.render.com/web/srv-d8umn177f7vs739rab5g
+```
+
 ## Papel do GitHub
 
-O GitHub é a fonte oficial do código e da documentação:
+O GitHub é a fonte oficial do código, documentação, schema e histórico:
 
 ```text
 https://github.com/MouraEnderson/Assessment-Report-Builder.git
@@ -29,37 +46,26 @@ O GitHub não é o entrypoint operacional do widget no MVP.
 O mesmo serviço Render entrega:
 
 ```text
-GET /                     → frontend/index.html
-GET /health               → health check
-GET /api/health           → health check da API
-GET /api/assessment/schema
+GET  /                     → widget oficial
+GET  /health               → health check
+GET  /version              → versão e entrypoint ativo
+GET  /api/health           → health check da API
+GET  /api/assessment/schema
 POST /api/assessment/generate
 POST /api/assessment/validate
 ```
 
-Benefícios:
-
-- um único link externo;
-- nenhuma duplicidade de entrypoint;
-- frontend e backend no mesmo domínio;
-- ausência de dependência de CORS no fluxo normal;
-- rollback pelo mesmo serviço;
-- atualização interna sem mudar o link do 3DDashboard.
-
-## Link oficial
-
-O link oficial será a URL pública do serviço Render.
-
-O link de dashboard administrativo não é o link operacional:
+## Fundação limpa
 
 ```text
-https://dashboard.render.com/web/srv-d8umn177f7vs739rab5g
-```
-
-Depois do primeiro deploy concluído, a URL pública deverá ser registrada aqui e no README.
-
-```text
-URL pública oficial: PENDENTE DE CONFIRMAÇÃO
+1 link oficial: https://assessment-report-builder.onrender.com/
+1 frontend oficial: frontend/index.html
+1 backend oficial: backend/server.js
+1 start oficial: npm start → node server.js
+1 fluxo operacional: / → widget
+0 entrypoints paralelos
+0 query string oficial
+0 fallback silencioso
 ```
 
 ## Regra de imutabilidade
@@ -71,7 +77,8 @@ Depois que a URL pública for registrada no 3DEXPERIENCE:
 - não excluir e recriar o serviço com outro endereço;
 - não trocar o link no dashboard para apontar diretamente a arquivos internos;
 - manter `/` como entrypoint oficial;
-- manter redirects e mudanças internas compatíveis com o link raiz.
+- não usar query string como versão oficial;
+- preservar compatibilidade com o link raiz.
 ```
 
 ## Evolução futura
@@ -81,8 +88,7 @@ A infraestrutura interna poderá evoluir, mas o endereço externo deverá perman
 Exemplos de mudanças permitidas:
 
 ```text
-- novos controllers;
-- serviços internos separados;
+- novos módulos internos;
 - banco de dados;
 - filas;
 - armazenamento de arquivos;
