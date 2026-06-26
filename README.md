@@ -12,6 +12,22 @@ Revisão humana
 Relatório DOCX editável
 ```
 
+## Link oficial do widget
+
+```text
+https://assessment-report-builder.onrender.com/
+```
+
+Este é o único link operacional oficial.
+
+Não usar como link oficial:
+
+```text
+https://assessment-report-builder.onrender.com/?v=...
+https://assessment-report-builder.onrender.com/index.html
+https://assessment-report-builder.onrender.com/frontend/index.html
+```
+
 ## Premissa mestre
 
 ```text
@@ -34,16 +50,16 @@ https://github.com/MouraEnderson/Assessment-Report-Builder.git
 https://dashboard.render.com/web/srv-d8umn177f7vs739rab5g
 ```
 
-O endereço acima é administrativo. A URL pública oficial do widget será registrada após a confirmação do primeiro deploy concluído.
+O endereço acima é administrativo. Ele não deve ser usado como link do widget.
 
 ## Arquitetura do MVP
 
 ```text
 3DEXPERIENCE / 3DDashboard
             ↓
-URL pública fixa do Render
+https://assessment-report-builder.onrender.com/
             ↓
-Frontend estático + API backend
+frontend/index.html + backend/server.js
             ↓
 assessment.json / validação / serviços futuros
 ```
@@ -58,21 +74,37 @@ DOCX = saída editável
 PDF = saída de leitura
 ```
 
+## Fundação limpa
+
+A fundação oficial passa a ser:
+
+```text
+1 link oficial: https://assessment-report-builder.onrender.com/
+1 frontend oficial: frontend/index.html
+1 backend oficial: backend/server.js
+1 start oficial: npm start → node server.js
+1 fluxo operacional: / → widget
+0 entrypoints paralelos
+0 query string oficial
+0 fallback silencioso
+```
+
 ## Estado atual
 
-O MVP 1 já contém:
+O MVP 1 contém:
 
 - Dockerfile para deploy no Render;
-- frontend servido pelo mesmo serviço;
+- frontend single-file servido pela raiz `/`;
+- backend oficial em `backend/server.js`;
 - rota `/health`;
+- rota `/version`;
 - schema oficial do `assessment.json`;
 - geração de rascunho estruturado;
 - editor JSON;
 - validação de schema;
 - exportação `.json`;
 - persistência local da sessão;
-- controller oficial;
-- CI para verificar sintaxe e build Docker.
+- CI para verificar sintaxe do backend e build Docker.
 
 A primeira versão não cria conclusões com IA. Ela estabelece o contrato e o fluxo sem apresentar dados simulados como fatos reais.
 
@@ -81,6 +113,7 @@ A primeira versão não cria conclusões com IA. Ela estabelece o contrato e o f
 ```text
 GET  /
 GET  /health
+GET  /version
 GET  /api/health
 GET  /api/assessment/schema
 POST /api/assessment/generate
@@ -92,13 +125,7 @@ POST /api/assessment/validate
 ```text
 Assessment-Report-Builder/
 ├── frontend/
-│   ├── index.html
-│   ├── styles.css
-│   ├── config.js
-│   ├── assessment-state.js
-│   ├── assessment-api-client.js
-│   ├── assessment-controller.js
-│   └── app.js
+│   └── index.html
 ├── backend/
 │   ├── server.js
 │   ├── package.json
@@ -128,7 +155,7 @@ O link oficial do widget nunca muda.
 ## Próximo checkpoint
 
 1. Confirmar build e deploy no Render.
-2. Registrar a URL pública oficial.
-3. Testar `/health`.
-4. Testar geração, edição, validação e exportação do `assessment.json`.
-5. Iniciar o editor visual por seções.
+2. Testar `GET /version`.
+3. Testar `GET /health`.
+4. Testar `GET /` no link oficial limpo.
+5. Testar geração, edição, validação e exportação do `assessment.json`.
