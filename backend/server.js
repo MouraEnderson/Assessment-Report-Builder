@@ -21,6 +21,13 @@ const ajv = new Ajv2020({
   strict: false
 });
 const validateAssessmentSchema = ajv.compile(assessmentSchema);
+const allowedSourceTypes = new Set([
+  'manual_text',
+  'local_upload',
+  'bookmark_manual',
+  'official_library',
+  'not_selected'
+]);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '5mb' }));
@@ -69,15 +76,20 @@ function validateAssessment(assessment) {
   };
 }
 
+function normalizeOptionalString(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 function normalizeInputSource(source, fallbackType) {
   const safeSource = source && typeof source === 'object' ? source : {};
+  const requestedType = typeof safeSource.type === 'string' ? safeSource.type : fallbackType;
+  const normalizedType = allowedSourceTypes.has(requestedType) ? requestedType : fallbackType;
+
   return {
-    type: safeSource.type || fallbackType,
-    filename: safeSource.filename || null,
-    origin_reference: safeSource.origin_reference || null,
-    received_at: safeSource.type && safeSource.type !== 'not_selected'
-      ? new Date().toISOString()
-      : null
+    type: normalizedType,
+    filename: normalizeOptionalString(safeSource.filename),
+    origin_reference: normalizeOptionalString(safeSource.origin_reference),
+    received_at: normalizedType !== 'not_selected' ? new Date().toISOString() : null
   };
 }
 
@@ -98,8 +110,8 @@ function createAssessmentDraft(input) {
       updated_at: now
     },
     client: {
-      name: client.name || null,
-      business_area: client.business_area || null,
+      name: normalizeOptionalString(client.name),
+      business_area: normalizeOptionalString(client.business_area),
       assessment_scope: null,
       participants: []
     },
