@@ -9,8 +9,6 @@ Usuário informa contexto
         ↓
 Usuário cola a transcrição
         ↓
-Frontend envia para o backend Render
-        ↓
 Backend cria assessment.json no schema oficial
         ↓
 Usuário edita o JSON
@@ -21,6 +19,16 @@ Usuário exporta o arquivo
 ```
 
 Este MVP não realiza extração inteligente com IA ainda. Ele estabelece a arquitetura, o contrato de dados, a persistência local, a comunicação frontend/backend e a validação do JSON sem apresentar dados simulados como conclusões reais.
+
+---
+
+## Link oficial
+
+```text
+https://assessment-report-builder.onrender.com/
+```
+
+Este é o único link operacional oficial do widget.
 
 ---
 
@@ -36,6 +44,23 @@ Este MVP não realiza extração inteligente com IA ainda. Ele estabelece a arqu
 8. O usuário pode editar e exportar o JSON.
 9. O estado da sessão é preservado no navegador.
 10. O frontend não contém chaves privadas.
+11. Não existe query string oficial.
+12. Não existe entrypoint paralelo.
+
+---
+
+## Fundação limpa
+
+```text
+1 link oficial: https://assessment-report-builder.onrender.com/
+1 frontend oficial: frontend/index.html
+1 backend oficial: backend/server.js
+1 start oficial: npm start → node server.js
+1 fluxo operacional: / → widget
+0 entrypoints paralelos
+0 query string oficial
+0 fallback silencioso
+```
 
 ---
 
@@ -45,13 +70,9 @@ Este MVP não realiza extração inteligente com IA ainda. Ele estabelece a arqu
 
 ```text
 frontend/index.html
-frontend/styles.css
-frontend/config.js
-frontend/assessment-state.js
-frontend/assessment-api-client.js
-frontend/assessment-controller.js
-frontend/app.js
 ```
+
+O frontend está concentrado em arquivo único no MVP para eliminar ambiguidade de carregamento e evitar dependência de múltiplos arquivos externos dentro do 3DEXPERIENCE.
 
 ### Backend
 
@@ -66,29 +87,26 @@ backend/schemas/assessment.schema.json
 ```text
 Dockerfile
 .dockerignore
+render.yaml
 ```
 
 ---
 
-## Controller oficial
+## Backend oficial
 
-O controller oficial do frontend é:
+O backend oficial é:
 
 ```text
-frontend/assessment-controller.js
+backend/server.js
 ```
 
 Responsabilidades atuais:
 
-- recuperar estado salvo;
-- controlar os campos de contexto;
-- controlar a transcrição;
-- verificar a saúde do backend;
+- servir o widget na rota `/`;
+- responder `/health`;
+- responder `/version`;
 - gerar o rascunho de `assessment.json`;
-- permitir edição manual;
 - validar o JSON no backend;
-- exportar o JSON;
-- limpar a sessão mediante confirmação;
 - mostrar erros sem fallback silencioso.
 
 ---
@@ -110,7 +128,6 @@ Dados preservados:
 - texto da transcrição;
 - assessment JSON;
 - resultado da última validação;
-- última etapa;
 - data de atualização.
 
 Esta persistência atende ao fluxo em que o usuário pode sair do widget para consultar uma bookmark e depois retornar.
@@ -125,11 +142,18 @@ Limitação atual:
 
 ## Endpoints disponíveis
 
+### Widget
+
+```text
+GET /
+```
+
 ### Verificação de serviço
 
 ```text
 GET /health
 GET /api/health
+GET /version
 ```
 
 ### Schema oficial
@@ -192,15 +216,16 @@ Entidades como softwares, gaps, fluxos, riscos e recomendações contêm campos 
 O MVP 1 será considerado tecnicamente ativo quando:
 
 1. O Render concluir o build do Dockerfile.
-2. `GET /health` retornar HTTP 200.
-3. A página inicial abrir pelo serviço publicado.
-4. O status do backend aparecer como online.
-5. O usuário conseguir colar uma transcrição.
-6. O backend retornar um JSON válido.
-7. O frontend permitir editar o JSON.
-8. A validação detectar um JSON inválido.
-9. A exportação gerar um arquivo `.json`.
-10. O refresh da página recuperar o estado salvo.
+2. `GET /version` retornar `entrypoint: server.js`.
+3. `GET /health` retornar HTTP 200.
+4. `GET /` abrir o widget pelo link oficial limpo.
+5. O status do backend aparecer como online.
+6. O usuário conseguir colar uma transcrição.
+7. O backend retornar um JSON válido.
+8. O frontend permitir editar o JSON.
+9. A validação detectar um JSON inválido.
+10. A exportação gerar um arquivo `.json`.
+11. O refresh da página recuperar o estado salvo.
 
 ---
 
