@@ -3,34 +3,185 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Widget oficial para criação de relatórios de assessment estruturados, revisáveis e editáveis." />
   <title>Assessment Report Builder</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <main class="app-shell">
-    <section class="hero">
-      <p class="eyebrow">Assessment Report Builder</p>
-      <h1>Widget oficial de geração de relatório de assessment</h1>
-      <p class="description">
-        Transcrição → assessment.json editável → revisão humana → relatório final editável.
-      </p>
-    </section>
+  <header class="topbar">
+    <div>
+      <p class="brand-kicker">Assessment Report Builder</p>
+      <strong>Widget oficial</strong>
+    </div>
+    <div class="backend-box" aria-live="polite">
+      <span id="backend-status" data-type="checking">Verificando backend...</span>
+      <button id="check-health" class="button button-secondary button-small" type="button">
+        Verificar
+      </button>
+    </div>
+  </header>
 
-    <section class="status-card">
-      <h2>Status do backend</h2>
-      <p id="backend-status">Verificando...</p>
-      <button id="check-health" type="button">Verificar /health</button>
+  <main class="app-shell">
+    <section class="hero panel">
+      <div>
+        <p class="eyebrow">MVP 1 · Assessment JSON Builder</p>
+        <h1>Transcrição estruturada antes do relatório</h1>
+        <p class="description">
+          A transcrição é o insumo. O <strong>assessment.json</strong> revisado é a fonte da verdade.
+          O DOCX será uma saída gerada somente depois da revisão humana.
+        </p>
+      </div>
+      <div class="master-rule">
+        <strong>Premissa mestre</strong>
+        <span>O link oficial do widget nunca muda.</span>
+      </div>
     </section>
 
     <section class="panel">
-      <h2>MVP técnico</h2>
-      <p>
-        Esta tela confirma que o link oficial do widget está carregando e que o backend Render pode responder.
-        A próxima etapa será conectar upload de transcrição, geração de assessment.json, editor de seções e geração DOCX.
+      <div class="section-heading">
+        <div>
+          <span class="step">Etapa 1</span>
+          <h2>Contexto do assessment</h2>
+        </div>
+        <span id="saved-status" class="saved-status">Carregando estado...</span>
+      </div>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Cliente</span>
+          <input id="client-name" type="text" autocomplete="organization" placeholder="Nome do cliente" />
+        </label>
+
+        <label class="field">
+          <span>Área principal</span>
+          <input id="business-area" type="text" placeholder="Ex.: Engenharia de Produto" />
+        </label>
+
+        <label class="field">
+          <span>Tipo de assessment</span>
+          <select id="assessment-type">
+            <option value="plm_assessment">PLM Assessment</option>
+            <option value="software_assessment">Software Assessment</option>
+            <option value="process_assessment">Process Assessment</option>
+            <option value="digital_transformation_assessment">Digital Transformation Assessment</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Modo de geração</span>
+          <select id="generation-mode">
+            <option value="conservador">Conservador</option>
+            <option value="consultivo">Consultivo</option>
+            <option value="executivo">Executivo</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <span class="step">Etapa 2</span>
+          <h2>Transcrição</h2>
+        </div>
+        <span id="transcript-counter" class="counter">0 caracteres · 0 palavras</span>
+      </div>
+
+      <div class="source-note">
+        Neste MVP, cole o texto da transcrição. Upload local e seleção manual via bookmark serão adicionados sem alterar o link do widget.
+      </div>
+
+      <label class="field">
+        <span>Texto da transcrição</span>
+        <textarea
+          id="transcript-text"
+          class="transcript-editor"
+          placeholder="Cole aqui a transcrição da reunião de assessment..."
+          spellcheck="true"
+        ></textarea>
+      </label>
+
+      <div class="actions">
+        <button id="generate-assessment" class="button button-primary" type="button">
+          Gerar assessment.json
+        </button>
+        <button id="reset-session" class="button button-danger-ghost" type="button">
+          Limpar sessão
+        </button>
+      </div>
+
+      <p id="operation-status" class="status-message" data-type="info" aria-live="polite">
+        Preencha o contexto e cole uma transcrição para iniciar.
       </p>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <span class="step">Etapa 3</span>
+          <h2>Revisão do assessment.json</h2>
+        </div>
+        <span class="tag">Editável</span>
+      </div>
+
+      <p class="helper-text">
+        O conteúdo abaixo pode ser alterado manualmente. Depois de editar, salve e valide contra o schema oficial.
+      </p>
+
+      <label class="field">
+        <span>assessment.json</span>
+        <textarea
+          id="assessment-json"
+          class="json-editor"
+          placeholder="O JSON gerado aparecerá aqui."
+          spellcheck="false"
+        ></textarea>
+      </label>
+
+      <div class="actions actions-wrap">
+        <button id="save-json" class="button button-secondary" type="button">
+          Salvar alterações
+        </button>
+        <button id="validate-assessment" class="button button-secondary" type="button">
+          Validar schema
+        </button>
+        <button id="export-json" class="button button-primary" type="button">
+          Exportar JSON
+        </button>
+      </div>
+
+      <p id="validation-status" class="validation-message" data-type="neutral" aria-live="polite">
+        Nenhum JSON carregado.
+      </p>
+    </section>
+
+    <section class="panel principles-panel">
+      <h2>Regras operacionais ativas</h2>
+      <div class="principles-grid">
+        <article>
+          <strong>JSON como verdade</strong>
+          <p>O relatório final será sempre consequência dos dados aprovados.</p>
+        </article>
+        <article>
+          <strong>Revisão humana</strong>
+          <p>Nenhum conteúdo gerado será considerado final sem revisão.</p>
+        </article>
+        <article>
+          <strong>Sem fallback silencioso</strong>
+          <p>Erros, ausências e incompatibilidades permanecem visíveis.</p>
+        </article>
+        <article>
+          <strong>Editável sempre</strong>
+          <p>Mapas, gaps, fluxos, radar e roadmap serão dados, não imagens fixas.</p>
+        </article>
+      </div>
     </section>
   </main>
 
+  <script src="./config.js"></script>
+  <script src="./assessment-state.js"></script>
+  <script src="./assessment-api-client.js"></script>
+  <script src="./assessment-controller.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
