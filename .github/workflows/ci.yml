@@ -1,0 +1,40 @@
+name: Assessment Builder CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Check backend syntax
+        run: node --check backend/server.js
+
+      - name: Check frontend syntax
+        run: |
+          node --check frontend/config.js
+          node --check frontend/assessment-state.js
+          node --check frontend/assessment-api-client.js
+          node --check frontend/assessment-controller.js
+          node --check frontend/app.js
+
+      - name: Build Docker image
+        run: docker build -t assessment-report-builder:ci .
