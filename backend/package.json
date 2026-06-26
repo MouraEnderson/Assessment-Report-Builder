@@ -1,12 +1,12 @@
 {
   "name": "assessment-report-builder-backend",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Backend API for Assessment Report Builder.",
-  "main": "server.js",
+  "main": "server-entry.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server-entry.js",
+    "dev": "node server-entry.js"
   },
   "engines": {
     "node": ">=20"
