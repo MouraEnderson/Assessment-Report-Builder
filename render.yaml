@@ -11,4 +11,4 @@ services:
       - key: PORT
         value: 10000
       - key: SERVICE_VERSION
-        value: 0.4.0
+        value: 0.4.1
