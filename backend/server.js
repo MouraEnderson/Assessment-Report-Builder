@@ -7,7 +7,8 @@ const Ajv2020 = require('ajv/dist/2020');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
-const serviceVersion = process.env.SERVICE_VERSION || '0.4.0';
+const serviceVersion = process.env.SERVICE_VERSION || '0.4.1';
+const widgetBuild = 'assessment-0.4.1';
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -54,11 +55,23 @@ function sendFrontendFile(filename, contentType) {
   };
 }
 
+function widgetManifest() {
+  return {
+    ok: true,
+    build: widgetBuild,
+    css: `/assets/css/assessment.css?build=${widgetBuild}`,
+    runtime: `/assets/js/assessment-runtime.js?build=${widgetBuild}`,
+    runtime_contract: '3DDashboard Additional App',
+    authentication_boundary: '3DEXPERIENCE session stays in frontend WAFData; Render never receives CAS/cookies/tokens'
+  };
+}
+
 function healthPayload() {
   return {
     ok: true,
     service: 'assessment-report-builder-backend',
     version: serviceVersion,
+    build: widgetBuild,
     entrypoint: 'server.js',
     widget_runtime: '3DDashboard Additional App',
     public_entrypoint: '/',
@@ -169,7 +182,12 @@ app.get('/', sendFrontendFile('widget.html', 'html'));
 app.get('/index.html', sendFrontendFile('widget.html', 'html'));
 app.get('/widget.html', sendFrontendFile('widget.html', 'html'));
 app.get('/assets/css/assessment.css', sendFrontendFile(path.join('assets', 'css', 'assessment.css'), 'css'));
+app.get('/assets/js/assessment-bootstrap.js', sendFrontendFile(path.join('assets', 'js', 'assessment-bootstrap.js'), 'application/javascript'));
 app.get('/assets/js/assessment-runtime.js', sendFrontendFile(path.join('assets', 'js', 'assessment-runtime.js'), 'application/javascript'));
+app.get('/api/widget/manifest', (req, res) => {
+  applyNoCacheHeaders(res);
+  res.status(200).json(widgetManifest());
+});
 
 app.get('/health', (req, res) => {
   res.status(200).json(healthPayload());
