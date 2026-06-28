@@ -1,13 +1,22 @@
 /* Assessment Report Builder — 3DEXPERIENCE Additional App runtime */
-(function (global) {
+(function (global, document) {
   'use strict';
 
-  var BUILD = 'assessment-0.4.0';
+  var BUILD = 'assessment-0.4.3';
   var STORAGE_KEY = 'assessment-report-builder.state.v1';
   var MIN_TRANSCRIPT_LENGTH = 20;
-
   var state = loadState();
   var els = {};
+
+  try {
+    if (global.console && global.console.log) {
+      global.console.log('[Assessment] runtime loaded', BUILD);
+    }
+  } catch (ignoreLog) {}
+
+  function trim(value) {
+    return String(value || '').replace(/^\s+|\s+$/g, '');
+  }
 
   function byId(id) {
     return document.getElementById(id);
@@ -20,6 +29,17 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function ensureRoot() {
+    var root = byId('assessment-root');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'assessment-root';
+      root.className = 'assessment-root';
+      document.body.appendChild(root);
+    }
+    return root;
   }
 
   function setStatus(element, message, kind) {
@@ -39,28 +59,42 @@
 
   function saveState(next) {
     next.updatedAt = new Date().toISOString();
-    global.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    try {
+      global.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch (error) {}
     state = next;
     return state;
   }
 
   function wordCount(text) {
-    var normalized = String(text || '').trim();
+    var normalized = trim(text);
     return normalized ? normalized.split(/\s+/).length : 0;
   }
 
-  function getRequire() {
-    if (typeof global.require !== 'undefined') return global.require;
-    try {
-      if (global.widget && global.widget.requirejs) return global.widget.requirejs;
-    } catch (eWidget) { /* noop */ }
-    try {
-      if (global.parent && global.parent !== global && global.parent.require) return global.parent.require;
-    } catch (eParent) { /* cross-origin expected */ }
-    try {
-      if (global.top && global.top !== global && global.top.require) return global.top.require;
-    } catch (eTop) { /* cross-origin expected */ }
-    return null;
+  function request(method, url, payload, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (payload) xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      var body = null;
+      try {
+        body = JSON.parse(xhr.responseText || '{}');
+      } catch (parseError) {
+        callback(new Error('Resposta inválida do servidor.'), null);
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300 || body.ok === false) {
+        callback(new Error(body.message || body.error || ('Falha HTTP ' + xhr.status)), body);
+        return;
+      }
+      callback(null, body);
+    };
+    xhr.onerror = function () {
+      callback(new Error('Falha de rede.'), null);
+    };
+    xhr.send(payload ? JSON.stringify(payload) : null);
   }
 
   function getWidgetWAFData() {
@@ -68,48 +102,52 @@
       if (global.widget && global.widget.WAFData && global.widget.WAFData.authenticatedRequest) {
         return global.widget.WAFData;
       }
-    } catch (error) { /* noop */ }
-    if (typeof global.WAFData !== 'undefined' && global.WAFData && global.WAFData.authenticatedRequest) {
-      return global.WAFData;
-    }
+    } catch (error) {}
+    try {
+      if (global.WAFData && global.WAFData.authenticatedRequest) {
+        return global.WAFData;
+      }
+    } catch (error2) {}
     return null;
   }
 
-  function ensure3DXSession() {
-    return new Promise(function (resolve) {
-      var existing = getWidgetWAFData();
-      if (existing) {
-        resolve({ ok: true, mode: 'widget.WAFData', WAFData: existing });
-        return;
-      }
+  function getRequire() {
+    if (typeof global.require !== 'undefined') return global.require;
+    try {
+      if (global.widget && global.widget.requirejs) return global.widget.requirejs;
+    } catch (error) {}
+    return null;
+  }
 
-      var req = getRequire();
-      if (!req) {
-        resolve({
-          ok: false,
-          mode: 'not_available',
-          message: 'Runtime 3DEXPERIENCE não expôs require/WAFData. Use Additional App, não Web Page Reader.'
-        });
-        return;
-      }
+  function check3DXSession() {
+    setStatus(els.sessionStatus, 'Sessão 3DX: verificando...', 'warn');
+    var existing = getWidgetWAFData();
+    if (existing) {
+      setStatus(els.sessionStatus, 'Sessão 3DX: WAFData disponível', 'ok');
+      return;
+    }
 
-      req([
-        'DS/WAFData/WAFData',
-        'DS/i3DXCompassServices/i3DXCompassServices',
-        'DS/PlatformAPI/PlatformAPI'
-      ], function (WAFData, CompassServices, PlatformAPI) {
-        if (WAFData) global.WAFData = WAFData;
-        if (CompassServices) global.__3DX_COMPASS__ = CompassServices;
-        if (PlatformAPI) global.__3DX_PLATFORM_API__ = PlatformAPI;
-        resolve({ ok: !!WAFData, mode: 'require', WAFData: WAFData });
-      }, function (error) {
-        resolve({
-          ok: false,
-          mode: 'require_failed',
-          message: error && error.message ? error.message : 'Falha ao carregar módulos DS.'
-        });
+    var req = getRequire();
+    if (!req) {
+      setStatus(els.sessionStatus, 'Sessão 3DX: WAFData indisponível', 'err');
+      setStatus(els.op, 'Runtime 3DEXPERIENCE não expôs require/WAFData. Confirme que está usando Additional App.', 'warning');
+      return;
+    }
+
+    try {
+      req(['DS/WAFData/WAFData'], function (WAFData) {
+        if (WAFData) {
+          global.WAFData = WAFData;
+          setStatus(els.sessionStatus, 'Sessão 3DX: WAFData disponível', 'ok');
+        } else {
+          setStatus(els.sessionStatus, 'Sessão 3DX: WAFData indisponível', 'err');
+        }
+      }, function () {
+        setStatus(els.sessionStatus, 'Sessão 3DX: falha ao carregar WAFData', 'err');
       });
-    });
+    } catch (error) {
+      setStatus(els.sessionStatus, 'Sessão 3DX: ' + error.message, 'err');
+    }
   }
 
   function buildHtml() {
@@ -158,39 +196,36 @@
             '<div class="assessment-actions"><button id="save-json" class="assessment-button secondary" type="button">Salvar alterações</button><button id="validate-assessment" class="assessment-button secondary" type="button">Validar schema</button><button id="export-json" class="assessment-button primary" type="button">Exportar JSON</button></div>' +
             '<p id="validation-status" class="assessment-message">Nenhum JSON carregado.</p>' +
           '</section>' +
-          '<section class="assessment-panel"><h2>Regras operacionais ativas</h2><div class="assessment-principles"><article class="assessment-principle"><strong>Sem CAS</strong><p>A sessão logada fica no widget 3DEXPERIENCE.</p></article><article class="assessment-principle"><strong>Render sem credencial</strong><p>O backend recebe dados, nunca cookies ou tokens 3DX.</p></article><article class="assessment-principle"><strong>JSON como verdade</strong><p>O relatório final nasce do assessment aprovado.</p></article><article class="assessment-principle"><strong>Sem fallback silencioso</strong><p>Erro, ausência e incerteza ficam visíveis.</p></article></div></section>' +
         '</div>' +
       '</div>';
   }
 
   function cacheElements() {
-    els = {
-      root: document.getElementById('assessment-root'),
-      sessionStatus: byId('session-status'),
-      backendStatus: byId('backend-status'),
-      checkHealth: byId('check-health'),
-      saved: byId('saved-status'),
-      client: byId('client-name'),
-      area: byId('business-area'),
-      type: byId('assessment-type'),
-      mode: byId('generation-mode'),
-      transcript: byId('transcript-text'),
-      counter: byId('transcript-counter'),
-      json: byId('assessment-json'),
-      op: byId('operation-status'),
-      validation: byId('validation-status'),
-      generate: byId('generate-assessment'),
-      reset: byId('reset-session'),
-      saveJson: byId('save-json'),
-      validate: byId('validate-assessment'),
-      exportJson: byId('export-json')
-    };
+    els.root = byId('assessment-root');
+    els.sessionStatus = byId('session-status');
+    els.backendStatus = byId('backend-status');
+    els.checkHealth = byId('check-health');
+    els.saved = byId('saved-status');
+    els.client = byId('client-name');
+    els.area = byId('business-area');
+    els.type = byId('assessment-type');
+    els.mode = byId('generation-mode');
+    els.transcript = byId('transcript-text');
+    els.counter = byId('transcript-counter');
+    els.json = byId('assessment-json');
+    els.op = byId('operation-status');
+    els.validation = byId('validation-status');
+    els.generate = byId('generate-assessment');
+    els.reset = byId('reset-session');
+    els.saveJson = byId('save-json');
+    els.validate = byId('validate-assessment');
+    els.exportJson = byId('export-json');
   }
 
   function collectState() {
     return {
-      clientName: els.client.value.replace(/^\s+|\s+$/g, ''),
-      businessArea: els.area.value.replace(/^\s+|\s+$/g, ''),
+      clientName: trim(els.client.value),
+      businessArea: trim(els.area.value),
       assessmentType: els.type.value,
       generationMode: els.mode.value,
       transcriptText: els.transcript.value,
@@ -212,9 +247,7 @@
     els.transcript.value = state.transcriptText || '';
     els.json.value = state.assessment ? JSON.stringify(state.assessment, null, 2) : '';
     updateCounter();
-    els.saved.textContent = state.updatedAt
-      ? 'Estado recuperado: ' + new Date(state.updatedAt).toLocaleString('pt-BR')
-      : 'Nova sessão. O progresso será salvo automaticamente.';
+    els.saved.textContent = state.updatedAt ? 'Estado recuperado: ' + new Date(state.updatedAt).toLocaleString('pt-BR') : 'Nova sessão. O progresso será salvo automaticamente.';
   }
 
   function persist() {
@@ -222,84 +255,57 @@
     els.saved.textContent = 'Salvo automaticamente: ' + new Date(state.updatedAt).toLocaleTimeString('pt-BR');
   }
 
-  function request(url, payload) {
-    return fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function (response) {
-      return response.json().then(function (body) {
-        if (!response.ok || body.ok === false) {
-          throw new Error(body.message || body.error || 'Falha HTTP ' + response.status);
-        }
-        return body;
-      });
-    });
-  }
-
   function checkBackend() {
     setStatus(els.backendStatus, 'Backend: verificando...', 'warn');
-    return fetch('/version', { cache: 'no-store' })
-      .then(function (response) { return response.json(); })
-      .then(function (body) {
-        if (!body.ok) throw new Error(body.message || 'Backend respondeu sem ok');
-        setStatus(els.backendStatus, 'Backend: online v' + body.version, 'ok');
-      })
-      .catch(function (error) {
+    request('GET', '/version', null, function (error, body) {
+      if (error) {
         setStatus(els.backendStatus, 'Backend: ' + error.message, 'err');
-      });
+        return;
+      }
+      setStatus(els.backendStatus, 'Backend: online v' + body.version, 'ok');
+    });
   }
 
-  function check3DXSession() {
-    setStatus(els.sessionStatus, 'Sessão 3DX: verificando...', 'warn');
-    return ensure3DXSession().then(function (session) {
-      if (session.ok) {
-        setStatus(els.sessionStatus, 'Sessão 3DX: WAFData disponível', 'ok');
-      } else {
-        setStatus(els.sessionStatus, 'Sessão 3DX: indisponível', 'err');
-        setStatus(els.op, session.message || 'Use Additional App no 3DDashboard para acesso autenticado.', 'warning');
-      }
-    });
+  function parseAssessment() {
+    if (!trim(els.json.value)) throw new Error('O editor está vazio.');
+    return JSON.parse(els.json.value);
   }
 
   function generateAssessment() {
     var s = collectState();
-    if (s.transcriptText.replace(/^\s+|\s+$/g, '').length < MIN_TRANSCRIPT_LENGTH) {
+    if (trim(s.transcriptText).length < MIN_TRANSCRIPT_LENGTH) {
       setStatus(els.op, 'A transcrição precisa ter pelo menos ' + MIN_TRANSCRIPT_LENGTH + ' caracteres.', 'error');
       return;
     }
-
     setStatus(els.op, 'Gerando assessment.json...', 'working');
-
-    request('/api/assessment/generate', {
-      client: {
-        name: s.clientName || null,
-        business_area: s.businessArea || null
-      },
+    request('POST', '/api/assessment/generate', {
+      client: { name: s.clientName || null, business_area: s.businessArea || null },
       transcript_text: s.transcriptText,
       assessment_type: s.assessmentType,
       generation_mode: s.generationMode,
       transcript_source: { type: 'manual_text' },
       template_source: { type: 'not_selected' }
-    }).then(function (body) {
-      saveState(Object.assign(s, { assessment: body.assessment, validation: body.validation || null }));
+    }, function (error, body) {
+      if (error) {
+        setStatus(els.op, 'Falha: ' + error.message, 'error');
+        return;
+      }
+      s.assessment = body.assessment;
+      s.validation = body.validation || null;
+      saveState(s);
       els.json.value = JSON.stringify(body.assessment, null, 2);
       setStatus(els.op, 'assessment.json gerado. Revise antes de usar em relatório.', 'success');
-      if (body.validation && body.validation.valid) setStatus(els.validation, 'Schema válido.', 'success');
-    }).catch(function (error) {
-      setStatus(els.op, 'Falha: ' + error.message, 'error');
+      setStatus(els.validation, 'Schema válido.', 'success');
     });
-  }
-
-  function parseAssessment() {
-    if (!els.json.value.replace(/^\s+|\s+$/g, '')) throw new Error('O editor está vazio.');
-    return JSON.parse(els.json.value);
   }
 
   function saveJsonEdits() {
     try {
       var assessment = parseAssessment();
-      saveState(Object.assign(collectState(), { assessment: assessment, validation: null }));
+      var next = collectState();
+      next.assessment = assessment;
+      next.validation = null;
+      saveState(next);
       setStatus(els.op, 'Alterações salvas localmente.', 'success');
       setStatus(els.validation, 'JSON alterado. Valide novamente.', 'warning');
     } catch (error) {
@@ -307,7 +313,7 @@
     }
   }
 
-  function validateAssessment() {
+  function validateJson() {
     var assessment;
     try {
       assessment = parseAssessment();
@@ -315,34 +321,26 @@
       setStatus(els.validation, 'Falha na validação: ' + error.message, 'error');
       return;
     }
-
     setStatus(els.validation, 'Validando schema...', 'working');
-    request('/api/assessment/validate', { assessment: assessment })
-      .then(function (body) {
-        saveState(Object.assign(collectState(), { assessment: assessment, validation: body }));
-        setStatus(
-          els.validation,
-          body.valid ? 'Schema válido.' : 'Schema inválido · ' + ((body.errors || []).length) + ' erro(s).',
-          body.valid ? 'success' : 'error'
-        );
-      })
-      .catch(function (error) {
+    request('POST', '/api/assessment/validate', { assessment: assessment }, function (error, body) {
+      if (error) {
         setStatus(els.validation, 'Falha na validação: ' + error.message, 'error');
-      });
+        return;
+      }
+      setStatus(els.validation, body.valid ? 'Schema válido.' : 'Schema inválido · ' + ((body.errors || []).length) + ' erro(s).', body.valid ? 'success' : 'error');
+    });
   }
 
   function exportJson() {
     try {
       var assessment = parseAssessment();
-      var blob = new Blob([JSON.stringify(assessment, null, 2)], { type: 'application/json' });
-      var url = URL.createObjectURL(blob);
+      var data = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(assessment, null, 2));
       var a = document.createElement('a');
-      a.href = url;
+      a.href = data;
       a.download = 'assessment.json';
       document.body.appendChild(a);
       a.click();
       a.parentNode.removeChild(a);
-      URL.revokeObjectURL(url);
       setStatus(els.op, 'assessment.json exportado.', 'success');
     } catch (error) {
       setStatus(els.op, 'Não foi possível exportar: ' + error.message, 'error');
@@ -351,7 +349,7 @@
 
   function resetSession() {
     if (!global.confirm('Limpar a sessão local deste widget?')) return;
-    global.localStorage.removeItem(STORAGE_KEY);
+    try { global.localStorage.removeItem(STORAGE_KEY); } catch (error) {}
     state = {};
     renderState();
     setStatus(els.op, 'Sessão local limpa.', 'success');
@@ -359,33 +357,43 @@
   }
 
   function bindEvents() {
-    var autoSaveIds = ['client-name', 'business-area', 'assessment-type', 'generation-mode', 'transcript-text'];
-    autoSaveIds.forEach(function (id) {
-      var node = byId(id);
-      node.addEventListener('input', function () { updateCounter(); persist(); });
-      node.addEventListener('change', persist);
-    });
+    var ids = ['client-name', 'business-area', 'assessment-type', 'generation-mode', 'transcript-text'];
+    var i;
+    for (i = 0; i < ids.length; i += 1) {
+      var node = byId(ids[i]);
+      if (node) {
+        node.oninput = function () { updateCounter(); persist(); };
+        node.onchange = persist;
+      }
+    }
+    els.checkHealth.onclick = function () { check3DXSession(); checkBackend(); };
+    els.generate.onclick = generateAssessment;
+    els.reset.onclick = resetSession;
+    els.saveJson.onclick = saveJsonEdits;
+    els.validate.onclick = validateJson;
+    els.exportJson.onclick = exportJson;
+  }
 
-    els.checkHealth.addEventListener('click', function () {
-      check3DXSession();
-      checkBackend();
-    });
-    els.generate.addEventListener('click', generateAssessment);
-    els.reset.addEventListener('click', resetSession);
-    els.saveJson.addEventListener('click', saveJsonEdits);
-    els.validate.addEventListener('click', validateAssessment);
-    els.exportJson.addEventListener('click', exportJson);
+  function showFatal(message) {
+    var root = ensureRoot();
+    root.innerHTML = '<div style="padding:18px;font-family:Arial;color:#b42318"><strong>Assessment Report Builder</strong><br />Falha no runtime: ' + escapeHtml(message) + '</div>';
   }
 
   function init() {
-    var root = document.getElementById('assessment-root');
-    if (!root) return;
-    root.innerHTML = buildHtml();
-    cacheElements();
-    renderState();
-    bindEvents();
-    check3DXSession();
-    checkBackend();
+    try {
+      var root = ensureRoot();
+      root.innerHTML = buildHtml();
+      cacheElements();
+      renderState();
+      bindEvents();
+      check3DXSession();
+      checkBackend();
+    } catch (error) {
+      showFatal(error.message || String(error));
+      try {
+        if (global.console && global.console.error) global.console.error('[Assessment] runtime failed', error);
+      } catch (ignoreError) {}
+    }
   }
 
   if (document.readyState === 'loading') {
@@ -393,4 +401,4 @@
   } else {
     init();
   }
-})(typeof window !== 'undefined' ? window : this);
+})(typeof window !== 'undefined' ? window : this, document);
