@@ -210,6 +210,12 @@ Saida esperada:
 docs/template-map.md
 ```
 
+Status:
+
+```text
+Concluido inicialmente. Ver docs/template-map.md.
+```
+
 ### Fase 2 - Preparar template operacional
 
 Objetivo:
