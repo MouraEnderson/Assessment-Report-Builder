@@ -81,6 +81,38 @@ Variavel opcional:
 AI_MAX_INPUT_CHARS=60000
 ```
 
+## Backup de Seguranca
+
+Antes da proxima evolucao de fluxo visual e radar de gaps, foi criado um ponto de retorno no estado atual de producao.
+
+```text
+Commit: 199797f05ad8e858445f80832859378ab17abd00
+Branch: codex/backup-before-flow-radar-2026-06-29
+Tag: backup-before-flow-radar-2026-06-29
+```
+
+Esse backup representa o estado em que:
+
+- o Render exporta DOCX editavel;
+- o template operacional limpo esta ativo;
+- o guardrail anti-contaminacao esta ativo;
+- o DOCX nao carrega texto herdado de XMOBOTS/Altium/SKACONECTOR/MCAD/ECAD quando esses termos nao existem no assessment;
+- o radar de gaps existe como matriz editavel em tabela;
+- o fluxo existe como tabela editavel.
+
+## Premissas Atuais
+
+1. O `assessment.json` e a fonte da verdade.
+2. O documento DOCX importado e insumo, nao template de saida.
+3. A IA deve estruturar informacao a partir de evidencia do documento importado.
+4. O template de saida nao pode conter narrativa fixa de cliente exemplo.
+5. Se o dado nao estiver evidenciado, o sistema deve registrar pendencia, hipotese, baixa confianca ou pergunta aberta.
+6. O DOCX final precisa ser editavel no Word.
+7. Fluxos, tabelas e radar precisam ser editaveis; imagem estatica so deve ser aceita se houver decisao explicita.
+8. O guardrail anti-contaminacao nao deve ser removido para melhorar visual.
+9. O link oficial permanece `https://assessment-report-builder.onrender.com/`.
+10. Render nao recebe credenciais, CAS ou cookies 3DEXPERIENCE.
+
 ## Etapas do Projeto
 
 ### Etapa 0 - Base oficial e deploy
@@ -185,33 +217,36 @@ JSON deve ficar como modo tecnico/avancado.
 Objetivo:
 
 ```text
-Gerar documento DOCX final editavel usando o template oficial.
+Gerar documento DOCX final editavel, limpo e baseado no assessment.json validado.
 ```
 
 Status:
 
 ```text
-Implementado parcialmente.
+Implementado parcialmente, com conteudo limpo e guardrail ativo.
 ```
 
 Pronto neste corte:
 
 - Endpoint `POST /api/assessment/export-docx`.
 - Exportacao DOCX a partir de `assessment.json` validado.
-- Uso do DOCX oficial XMOBOTS como arquivo base do exportador.
-- Preservacao estrutural do template oficial: secoes, midia e desenhos/objetos Word.
+- Template operacional limpo gerado por script.
+- Guardrail anti-contaminacao contra termos herdados do exemplo antigo.
 - Texto nativo editavel.
-- Tabelas nativas editaveis para softwares, processos, gaps, radar, fluxos, riscos, recomendacoes, roadmap, perguntas abertas e revisao.
+- Tabelas nativas editaveis para softwares, processos, gaps, radar, fluxos, riscos, recomendacoes, roadmap e perguntas abertas.
+- Radar de gaps em matriz editavel.
+- Fluxo em tabela editavel.
 - Botao `Exportar DOCX` no widget.
-- Substituicao basica de cliente/titulo no XML do Word.
-- Apendice estruturado com resumo executivo, softwares, gaps, radar, fluxos e roadmap gerados pela IA.
+- Renderizacao via `docxtemplater`, sem injecao manual de XML.
+- Script reprodutivel do template: `backend/scripts/create-clean-operational-template.js`.
 
 Ainda falta:
 
-- Substituir o conteudo de cada secao do template por conteudo gerado, preservando os objetos/desenhos.
-- Mapear secoes 1 a 6 do template para campos do `assessment.json`.
-- Atualizar textos dentro dos desenhos/objetos Word sem quebrar o pacote OOXML.
-- Validar o DOCX final no Word com edicao manual de tabelas, textos e fluxos.
+- Melhorar o fluxo visual para ficar mais proximo do template oficial, mantendo editabilidade.
+- Melhorar o radar de gaps para leitura executiva mais forte.
+- Avaliar grafico Office nativo editavel se a matriz em tabela nao for suficiente.
+- Refinar capa, espacamentos e estilos.
+- Validar com documentos reais de segmentos diferentes.
 
 Observacao sobre o template XMOBOTS:
 
@@ -220,7 +255,7 @@ Observacao sobre o template XMOBOTS:
 - Nao foram encontrados graficos Office nativos em `word/charts`.
 - Existe 1 arquivo em `word/media`.
 
-Isso indica que parte dos fluxos e matrizes esta como objeto Word editavel, nao como grafico Office tradicional.
+Esse arquivo continua como referencia visual, mas nao e mais usado como base direta de exportacao porque continha narrativa especifica do cliente exemplo.
 
 ### Etapa 5 - Bookmark automatico 3DEXPERIENCE
 
@@ -257,6 +292,7 @@ GET  /api/assessment/schema
 POST /api/assessment/import-docx
 POST /api/assessment/generate
 POST /api/assessment/validate
+POST /api/assessment/export-docx
 ```
 
 ## Fonte da Verdade
@@ -275,6 +311,9 @@ PDF = saida de leitura futura
 ### Local
 
 - `node --check backend/server.js`
+- `node --check backend/report-model.js`
+- `node --check backend/docx-template-renderer.js`
+- `node --check backend/scripts/create-clean-operational-template.js`
 - `node --check frontend/assets/js/assessment-runtime.js`
 - `npm audit --omit=dev`
 - `git diff --check`
@@ -296,12 +335,19 @@ PDF = saida de leitura futura
 - `/api/assessment/import-docx` importando DOCX real.
 - `/api/assessment/generate` chamando Gemini real.
 - Resultado IA validado contra schema.
+- `/api/assessment/export-docx` retornando DOCX Word valido.
+- DOCX de producao abre no Microsoft Word.
+- DOCX de producao renderiza cliente, resumo, gaps, radar e fluxos.
+- DOCX de producao nao contem termos herdados do template quando nao existem no assessment.
 
 ## Decisoes Tecnicas
 
 - O MVP aceita `.docx`, nao `.doc` legado.
 - O provedor de IA do MVP é Gemini API.
 - Modelo atual: `gemini-2.5-flash`.
+- O template de saida atual e limpo e gerado por script.
+- O template XMOBOTS e referencia visual, nao base operacional direta.
+- O exportador bloqueia vazamento de termos herdados por `DOCX_EXPORT_TEMPLATE_LEAK`.
 - O backend nao faz CAS.
 - O widget nao usa iframe.
 - O link oficial nao muda.
@@ -310,17 +356,17 @@ PDF = saida de leitura futura
 
 ## O Que Falta
 
-1. Melhorar Etapa 3 visual:
+1. Melhorar Etapa 3 visual no widget:
    - mostrar assessment estruturado;
    - esconder JSON bruto em modo avancado;
    - destacar resumo executivo, softwares, gaps, fluxos, recomendacoes e roadmap.
 
-2. Gerar DOCX final editavel:
-   - usar template oficial;
-   - mapear `assessment.json` para secoes;
-   - gerar tabelas editaveis;
-   - gerar fluxos editaveis;
-   - gerar matriz/gap editavel quando tecnicamente viavel.
+2. Melhorar DOCX final editavel:
+   - evoluir fluxo visual editavel;
+   - evoluir radar de gaps;
+   - refinar capa e estilos;
+   - aproximar do template oficial sem copiar conteudo fixo;
+   - preservar guardrail anti-contaminacao.
 
 3. Validar documento final no Word:
    - abrir DOCX;
@@ -331,6 +377,35 @@ PDF = saida de leitura futura
 
 4. Evoluir bookmark automatico:
    - somente depois de provar API oficial com WAFData.
+
+## Proximos Passos Planejados
+
+### PR seguinte - Fluxo visual e radar de gaps
+
+Objetivo:
+
+```text
+Melhorar a apresentacao do fluxo e do radar sem quebrar editabilidade nem reintroduzir conteudo fixo.
+```
+
+Escopo previsto:
+
+- melhorar `backend/report-model.js` para preparar dados visuais de fluxo;
+- melhorar `backend/scripts/create-clean-operational-template.js`;
+- gerar uma area visual de fluxo em tabela horizontal/editavel;
+- melhorar matriz/radar de gaps com leitura executiva;
+- regenerar `backend/templates/assessment-operational-template.docx`;
+- validar abertura no Word;
+- validar ausencia de termos herdados;
+- validar exportacao no Render apos merge.
+
+Fora do escopo deste PR:
+
+- bookmark automatico;
+- troca de provedor IA;
+- grafico Office nativo complexo;
+- reuso direto dos shapes do DOCX XMOBOTS;
+- mudanca do link oficial.
 
 ## Regra de Estabilidade
 
