@@ -12,7 +12,8 @@ const port = Number(process.env.PORT || 10000);
 const serviceVersion = process.env.SERVICE_VERSION || '0.4.3';
 const widgetBuild = `assessment-${serviceVersion}`;
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const geminiModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const configuredGeminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const geminiModel = configuredGeminiModel === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : configuredGeminiModel;
 const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 60000);
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
