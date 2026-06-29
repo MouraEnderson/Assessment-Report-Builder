@@ -7,6 +7,7 @@ const Ajv2020 = require('ajv/dist/2020');
 const mammoth = require('mammoth');
 const JSZip = require('jszip');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { renderOperationalAssessmentDocx } = require('./docx-template-renderer');
 const {
   AlignmentType,
   BorderStyle,
@@ -755,86 +756,7 @@ function buildDocxChildren(assessment) {
 }
 
 async function buildAssessmentDocx(assessment) {
-  const templateBuffer = await buildTemplateBasedAssessmentDocx(assessment);
-  if (templateBuffer) {
-    return templateBuffer;
-  }
-
-  const document = new Document({
-    creator: 'Assessment Report Builder',
-    title: `Assessment ${safeText(assessment.client && assessment.client.name)}`,
-    description: 'Relatorio editavel gerado a partir de assessment.json validado.',
-    styles: {
-      paragraphStyles: [
-        {
-          id: 'Title',
-          name: 'Title',
-          run: { size: 36, bold: true, color: DOCX_COLORS.navy },
-          paragraph: { spacing: { after: 240 } }
-        },
-        {
-          id: 'Heading1',
-          name: 'Heading 1',
-          basedOn: 'Normal',
-          next: 'Normal',
-          quickFormat: true,
-          run: { size: 28, bold: true, color: DOCX_COLORS.blueDark },
-          paragraph: { spacing: { before: 260, after: 160 } }
-        },
-        {
-          id: 'Heading2',
-          name: 'Heading 2',
-          basedOn: 'Normal',
-          next: 'Normal',
-          quickFormat: true,
-          run: { size: 23, bold: true, color: DOCX_COLORS.navy },
-          paragraph: { spacing: { before: 180, after: 100 } }
-        }
-      ]
-    },
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: {
-              top: 900,
-              right: 720,
-              bottom: 900,
-              left: 720
-            }
-          }
-        },
-        headers: {
-          default: new Header({
-            children: [
-              docParagraph('Assessment Report Builder | Documento executivo editavel', {
-                alignment: AlignmentType.RIGHT,
-                color: DOCX_COLORS.grayText,
-                size: 16,
-                after: 80
-              })
-            ]
-          })
-        },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  textRun('Pagina ', { size: 16, color: DOCX_COLORS.grayText }),
-                  new TextRun({ children: [PageNumber.CURRENT], size: 16, color: DOCX_COLORS.grayText })
-                ]
-              })
-            ]
-          })
-        },
-        children: buildDocxChildren(assessment)
-      }
-    ]
-  });
-
-  return Packer.toBuffer(document);
+  return renderOperationalAssessmentDocx(assessment);
 }
 
 function normalizeSource(source, fallbackType) {
