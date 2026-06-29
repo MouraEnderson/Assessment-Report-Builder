@@ -5,11 +5,15 @@ const cors = require('cors');
 const helmet = require('helmet');
 const Ajv2020 = require('ajv/dist/2020');
 const mammoth = require('mammoth');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
 const serviceVersion = process.env.SERVICE_VERSION || '0.4.3';
 const widgetBuild = `assessment-${serviceVersion}`;
+const geminiApiKey = process.env.GEMINI_API_KEY || '';
+const geminiModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 60000);
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -92,6 +96,10 @@ function validateAssessment(assessment) {
   };
 }
 
+function geminiEnabled() {
+  return Boolean(geminiApiKey.trim());
+}
+
 function normalizeOptionalString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -106,6 +114,20 @@ function normalizeExtractedText(text) {
     .replace(/\r/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function extractJsonObject(text) {
+  const raw = String(text || '').trim();
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1].trim() : raw;
+  const first = candidate.indexOf('{');
+  const last = candidate.lastIndexOf('}');
+
+  if (first < 0 || last < first) {
+    throw new Error('A IA não retornou um objeto JSON.');
+  }
+
+  return JSON.parse(candidate.slice(first, last + 1));
 }
 
 function normalizeSource(source, fallbackType) {
@@ -181,6 +203,107 @@ function createAssessmentDraft(input) {
       recommendations: 'Pendente'
     }
   };
+}
+
+function buildAssessmentPrompt(input) {
+  const client = input.client && typeof input.client === 'object' ? input.client : {};
+  const transcriptText = normalizeExtractedText(input.transcript_text).slice(0, maxAiInputCharacters);
+
+  return [
+    'Você é um consultor sênior de PLM, engenharia de produto, processos, sistemas e 3DEXPERIENCE.',
+    'Sua tarefa é transformar o conteúdo de um assessment em um assessment.json estritamente válido.',
+    '',
+    'Regras obrigatórias:',
+    '- Responda somente com JSON válido, sem markdown e sem explicações fora do JSON.',
+    '- Use exatamente o contrato descrito abaixo; não adicione propriedades fora do schema.',
+    '- Não invente fatos. Quando inferir algo, registre como hipótese ou confiança menor.',
+    '- Toda recomendação deve estar ligada a evidência, gap ou risco quando possível.',
+    '- Se faltar informação, use null, arrays vazios ou open_questions.',
+    '- Todos os textos devem ficar em português do Brasil.',
+    '- O campo review_status deve iniciar como Pendente.',
+    '',
+    'Enums importantes:',
+    '- confidence: Baixa, Média, Alta, Não avaliada.',
+    '- reviewState: Pendente, Revisado, Aprovado, Rejeitado, Regenerar.',
+    '- gap classification: Fato, Hipótese, Pendência.',
+    '- flow type: AS-IS ou TO-BE.',
+    '',
+    'Cliente informado:',
+    JSON.stringify({
+      name: normalizeOptionalString(client.name),
+      business_area: normalizeOptionalString(client.business_area),
+      assessment_type: input.assessment_type || 'plm_assessment',
+      generation_mode: input.generation_mode || 'consultivo',
+      transcript_source: input.transcript_source || { type: 'local_upload' },
+      template_source: input.template_source || { type: 'not_selected' }
+    }, null, 2),
+    '',
+    'Schema JSON oficial:',
+    JSON.stringify(assessmentSchema),
+    '',
+    'Conteúdo importado do assessment:',
+    transcriptText
+  ].join('\n');
+}
+
+async function createAssessmentWithGemini(input) {
+  const genAI = new GoogleGenerativeAI(geminiApiKey);
+  const model = genAI.getGenerativeModel({
+    model: geminiModel,
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: 'application/json'
+    }
+  });
+  const result = await model.generateContent(buildAssessmentPrompt(input));
+  const response = result.response;
+  const jsonText = response.text();
+  const assessment = extractJsonObject(jsonText);
+  const now = new Date().toISOString();
+
+  assessment.metadata = assessment.metadata && typeof assessment.metadata === 'object' ? assessment.metadata : {};
+  assessment.metadata.assessment_id = assessment.metadata.assessment_id || `ASSESS-${Date.now()}`;
+  assessment.metadata.version = assessment.metadata.version || '0.1';
+  assessment.metadata.status = 'draft';
+  assessment.metadata.assessment_type = input.assessment_type || assessment.metadata.assessment_type || 'plm_assessment';
+  assessment.metadata.generation_mode = input.generation_mode || assessment.metadata.generation_mode || 'consultivo';
+  assessment.metadata.created_at = assessment.metadata.created_at || now;
+  assessment.metadata.updated_at = now;
+
+  assessment.client = assessment.client && typeof assessment.client === 'object' ? assessment.client : {};
+  const client = input.client && typeof input.client === 'object' ? input.client : {};
+  assessment.client.name = assessment.client.name || normalizeOptionalString(client.name);
+  assessment.client.business_area = assessment.client.business_area || normalizeOptionalString(client.business_area);
+  assessment.client.assessment_scope = Object.prototype.hasOwnProperty.call(assessment.client, 'assessment_scope') ? assessment.client.assessment_scope : null;
+  assessment.client.participants = Array.isArray(assessment.client.participants) ? assessment.client.participants : [];
+
+  assessment.input_sources = {
+    transcript: normalizeSource(input.transcript_source, 'local_upload'),
+    template: normalizeSource(input.template_source, 'not_selected')
+  };
+
+  assessment.meeting_summary = assessment.meeting_summary && typeof assessment.meeting_summary === 'object' ? assessment.meeting_summary : {};
+  assessment.meeting_summary.raw_length = input.transcript_text.trim().length;
+  assessment.meeting_summary.word_count = countWords(input.transcript_text);
+  assessment.meeting_summary.note = assessment.meeting_summary.note || 'Assessment estruturado por IA a partir de documento importado, pendente de revisão humana.';
+  assessment.meeting_summary.raw_excerpt = assessment.meeting_summary.raw_excerpt || input.transcript_text.trim().slice(0, 500);
+
+  assessment.appendix = assessment.appendix && typeof assessment.appendix === 'object' ? assessment.appendix : {};
+  assessment.appendix.transcript_processing_status = 'received';
+  assessment.appendix.ai_extraction_status = 'generated';
+  assessment.appendix.ai_provider = 'gemini';
+  assessment.appendix.ai_model = geminiModel;
+  assessment.appendix.ai_generated_at = now;
+
+  assessment.review_status = {
+    executive_summary: 'Pendente',
+    software_map: 'Pendente',
+    gap_map: 'Pendente',
+    flows: 'Pendente',
+    recommendations: 'Pendente'
+  };
+
+  return assessment;
 }
 
 app.get('/', sendFrontendFile('widget.html', 'html'));
@@ -288,7 +411,7 @@ app.post('/api/assessment/import-docx', async (req, res) => {
   }
 });
 
-app.post('/api/assessment/generate', (req, res) => {
+app.post('/api/assessment/generate', async (req, res) => {
   const input = req.body || {};
   const transcriptText = input.transcript_text;
 
@@ -309,15 +432,31 @@ app.post('/api/assessment/generate', (req, res) => {
     });
   }
 
-  const assessment = createAssessmentDraft(input);
+  let assessment;
+  try {
+    assessment = geminiEnabled() ? await createAssessmentWithGemini(input) : createAssessmentDraft(input);
+  } catch (error) {
+    return res.status(502).json({
+      ok: false,
+      error: 'AI_ASSESSMENT_GENERATION_FAILED',
+      message: error.message || 'Falha ao gerar assessment com IA.',
+      provider: 'gemini',
+      model: geminiModel
+    });
+  }
+
   const validation = validateAssessment(assessment);
 
   if (!validation.valid) {
     return res.status(500).json({
       ok: false,
-      error: 'GENERATED_ASSESSMENT_INVALID',
-      message: 'O backend gerou um assessment incompatível com o schema oficial.',
-      validation
+      error: geminiEnabled() ? 'AI_ASSESSMENT_SCHEMA_INVALID' : 'GENERATED_ASSESSMENT_INVALID',
+      message: geminiEnabled()
+        ? 'A IA gerou um assessment incompatível com o schema oficial.'
+        : 'O backend gerou um assessment incompatível com o schema oficial.',
+      validation,
+      provider: geminiEnabled() ? 'gemini' : null,
+      model: geminiEnabled() ? geminiModel : null
     });
   }
 
