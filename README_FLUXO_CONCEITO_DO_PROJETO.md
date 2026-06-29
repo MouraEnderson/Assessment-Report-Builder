@@ -201,10 +201,16 @@ Pronto neste corte:
 - Texto nativo editavel.
 - Tabelas nativas editaveis para softwares, processos, gaps, radar, fluxos, riscos, recomendacoes, roadmap, perguntas abertas e revisao.
 - Botao `Exportar DOCX` no widget.
+- Capa executiva com dados do cliente.
+- Cabecalho e rodape com numeracao de pagina.
+- Quebras de pagina por bloco principal.
+- Titulos de secao com faixa visual editavel.
+- Radar de gaps em matriz editavel com escala 0-5.
+- Fluxos AS-IS/TO-BE em blocos visuais editaveis e tabela detalhada completa.
 
 Ainda falta:
 
-- Aplicar o template visual XMOBOTS com maior fidelidade.
+- Replicar o template visual XMOBOTS com maior fidelidade.
 - Reconstruir fluxos como objetos/desenhos Word editaveis.
 - Evoluir matriz/grafico GAP para grafico/objeto editavel no Word quando tecnicamente viavel.
 - Validar o DOCX final no Word com edicao manual de tabelas, textos e fluxos.

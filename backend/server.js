@@ -10,13 +10,20 @@ const {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
   HeadingLevel,
+  Header,
+  PageBreak,
+  PageNumber,
   Packer,
   Paragraph,
+  ShadingType,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
+  VerticalAlign,
   WidthType
 } = require('docx');
 
@@ -150,53 +157,113 @@ function safeText(value) {
   return String(value);
 }
 
+const DOCX_COLORS = {
+  navy: '0F172A',
+  blue: '2555D9',
+  blueDark: '1F3F9A',
+  blueLight: 'EAF0FF',
+  cyanLight: 'E8F7FF',
+  grayText: '475569',
+  grayBorder: 'CBD5E1',
+  grayFill: 'F8FAFC',
+  green: 'DDF7E8',
+  yellow: 'FFF4CC',
+  orange: 'FFE3C2',
+  red: 'FFE0E0',
+  white: 'FFFFFF'
+};
+
+function textRun(text, options = {}) {
+  return new TextRun({
+    text: safeText(text),
+    bold: Boolean(options.bold),
+    italics: Boolean(options.italics),
+    color: options.color || DOCX_COLORS.navy,
+    size: options.size || 20,
+    allCaps: Boolean(options.allCaps)
+  });
+}
+
 function docParagraph(text, options = {}) {
   return new Paragraph({
     heading: options.heading,
     alignment: options.alignment,
-    spacing: { after: options.after == null ? 160 : options.after },
-    children: [
-      new TextRun({
-        text: safeText(text),
-        bold: Boolean(options.bold),
-        size: options.size
-      })
-    ]
+    spacing: {
+      before: options.before || 0,
+      after: options.after == null ? 160 : options.after,
+      line: options.line || 276
+    },
+    children: [textRun(text, options)]
   });
+}
+
+function pageBreak() {
+  return new Paragraph({ children: [new PageBreak()] });
 }
 
 function docBullet(text) {
   return new Paragraph({
     bullet: { level: 0 },
     spacing: { after: 80 },
-    children: [new TextRun(safeText(text))]
+    children: [textRun(text)]
   });
 }
 
-function cell(text, bold = false) {
+function cell(text, bold = false, options = {}) {
   return new TableCell({
+    columnSpan: options.columnSpan,
+    verticalAlign: options.verticalAlign || VerticalAlign.CENTER,
+    shading: options.fill
+      ? {
+          type: ShadingType.CLEAR,
+          fill: options.fill,
+          color: 'auto'
+        }
+      : undefined,
     margins: { top: 100, bottom: 100, left: 120, right: 120 },
     borders: {
-      top: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' },
-      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' },
-      left: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' },
-      right: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' }
+      top: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder },
+      left: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder },
+      right: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder }
     },
     children: [
       new Paragraph({
-        children: [new TextRun({ text: safeText(text), bold, size: 18 })]
+        alignment: options.alignment,
+        spacing: { after: 0 },
+        children: [
+          textRun(text, {
+            bold,
+            size: options.size || 18,
+            color: options.color || DOCX_COLORS.navy,
+            allCaps: options.allCaps
+          })
+        ]
       })
     ]
   });
 }
 
-function docTable(headers, rows) {
+function docTable(headers, rows, options = {}) {
   const safeRows = Array.isArray(rows) && rows.length ? rows : [['Sem dados estruturados.']];
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: options.fixed ? TableLayoutType.FIXED : undefined,
     rows: [
-      new TableRow({ children: headers.map((header) => cell(header, true)) }),
-      ...safeRows.map((row) => new TableRow({ children: row.map((value) => cell(value)) }))
+      new TableRow({
+        tableHeader: true,
+        children: headers.map((header) => cell(header, true, {
+          fill: options.headerFill || DOCX_COLORS.blue,
+          color: DOCX_COLORS.white,
+          allCaps: true,
+          size: 17
+        }))
+      }),
+      ...safeRows.map((row, rowIndex) => new TableRow({
+        children: row.map((value) => cell(value, false, {
+          fill: rowIndex % 2 === 0 ? DOCX_COLORS.white : DOCX_COLORS.grayFill
+        }))
+      }))
     ]
   });
 }
@@ -205,78 +272,286 @@ function mapRows(items, mapper) {
   return Array.isArray(items) && items.length ? items.map(mapper) : [];
 }
 
-function buildDocxChildren(assessment) {
-  const summary = assessment.executive_summary || {};
+function sectionTitle(number, title, subtitle) {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          cell(number, true, {
+            fill: DOCX_COLORS.blue,
+            color: DOCX_COLORS.white,
+            size: 24,
+            alignment: AlignmentType.CENTER
+          }),
+          cell(title, true, {
+            fill: DOCX_COLORS.blueLight,
+            color: DOCX_COLORS.blueDark,
+            size: 24
+          })
+        ]
+      }),
+      ...(subtitle ? [
+        new TableRow({
+          children: [
+            cell(subtitle, false, {
+              columnSpan: 2,
+              fill: DOCX_COLORS.grayFill,
+              color: DOCX_COLORS.grayText,
+              size: 18
+            })
+          ]
+        })
+      ] : [])
+    ]
+  });
+}
+
+function callout(title, body, fill = DOCX_COLORS.cyanLight) {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          cell(title, true, {
+            fill,
+            color: DOCX_COLORS.blueDark,
+            size: 19
+          }),
+          cell(body, false, {
+            fill,
+            color: DOCX_COLORS.navy,
+            size: 19
+          })
+        ]
+      })
+    ]
+  });
+}
+
+function scoreColor(score) {
+  const value = Number(score || 0);
+  if (value >= 4) return DOCX_COLORS.red;
+  if (value >= 3) return DOCX_COLORS.orange;
+  if (value >= 2) return DOCX_COLORS.yellow;
+  return DOCX_COLORS.green;
+}
+
+function impactFill(impact) {
+  const normalized = safeText(impact).toLowerCase();
+  if (normalized.includes('cr')) return DOCX_COLORS.red;
+  if (normalized.includes('alto')) return DOCX_COLORS.orange;
+  if (normalized.includes('m')) return DOCX_COLORS.yellow;
+  return DOCX_COLORS.green;
+}
+
+function buildCover(assessment) {
   const client = assessment.client || {};
+  const metadata = assessment.metadata || {};
+  return [
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [
+        new TableRow({
+          children: [
+            cell('ASSESSMENT DE ENGENHARIA', true, {
+              columnSpan: 2,
+              fill: DOCX_COLORS.blue,
+              color: DOCX_COLORS.white,
+              size: 34,
+              alignment: AlignmentType.CENTER
+            })
+          ]
+        }),
+        new TableRow({
+          children: [
+            cell(safeText(client.name || 'Cliente nao informado'), true, {
+              columnSpan: 2,
+              fill: DOCX_COLORS.blueLight,
+              color: DOCX_COLORS.blueDark,
+              size: 28,
+              alignment: AlignmentType.CENTER
+            })
+          ]
+        }),
+        new TableRow({
+          children: [
+            cell('Arquitetura de processos, sistemas, gaps e roadmap de evolucao', false, {
+              columnSpan: 2,
+              fill: DOCX_COLORS.white,
+              color: DOCX_COLORS.grayText,
+              size: 20,
+              alignment: AlignmentType.CENTER
+            })
+          ]
+        }),
+        new TableRow({ children: [cell('Cliente', true, { fill: DOCX_COLORS.grayFill }), cell(client.name, false)] }),
+        new TableRow({ children: [cell('Area principal', true, { fill: DOCX_COLORS.grayFill }), cell(client.business_area, false)] }),
+        new TableRow({ children: [cell('Escopo', true, { fill: DOCX_COLORS.grayFill }), cell(client.assessment_scope, false)] }),
+        new TableRow({ children: [cell('Status do assessment', true, { fill: DOCX_COLORS.grayFill }), cell(`${safeText(metadata.status)} | ${safeText(metadata.generation_mode)}`, false)] })
+      ]
+    }),
+    docParagraph('Documento gerado pelo Assessment Report Builder a partir do assessment.json validado. Conteudo editavel e pendente de revisao humana antes de envio oficial.', {
+      alignment: AlignmentType.CENTER,
+      color: DOCX_COLORS.grayText,
+      size: 18,
+      before: 300
+    }),
+    pageBreak()
+  ];
+}
+
+function buildExecutiveSnapshot(assessment) {
+  const summary = assessment.executive_summary || {};
+  return [
+    sectionTitle('01', 'Introducao e leitura executiva', 'Contexto consolidado a partir do documento importado e da geracao IA validada pelo schema.'),
+    docParagraph('Objetivo do documento', { heading: HeadingLevel.HEADING_2 }),
+    docParagraph('Este assessment consolida o processo atual, sistemas utilizados, gargalos, riscos e oportunidades de evolucao para apoiar uma jornada de transformacao em ondas.'),
+    callout('Leitura executiva', summary.current_state || 'Sem resumo executivo estruturado.'),
+    docParagraph('Principais dores', { heading: HeadingLevel.HEADING_2 }),
+    ...(summary.main_pains || ['Sem dores estruturadas.']).map((pain) => docBullet(pain)),
+    docParagraph(`Maturidade geral: ${safeText(summary.overall_maturity)} | Confianca: ${safeText(summary.confidence)}`, {
+      bold: true,
+      color: DOCX_COLORS.blueDark
+    })
+  ];
+}
+
+function buildSoftwareLandscape(assessment) {
+  return [
+    pageBreak(),
+    sectionTitle('02', 'Visao geral de sistemas e processos', 'Mapa editavel dos softwares e processos identificados no assessment.'),
+    docParagraph('Ferramentas e recursos utilizados', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Area', 'Software', 'Uso', 'Dores', 'Integracoes', 'Oportunidades'], mapRows(assessment.software_map, (item) => [
+      item.area,
+      item.software,
+      item.usage,
+      item.pain_points,
+      item.integrations,
+      item.opportunities
+    ]), { fixed: true }),
+    docParagraph('Mapa de processos', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Processo', 'Area responsavel', 'Sistemas', 'Dores', 'Evidencia'], mapRows(assessment.process_map, (item) => [
+      item.name,
+      item.owner_area,
+      item.systems,
+      item.pain_points,
+      item.evidence
+    ]), { fixed: true })
+  ];
+}
+
+function buildGapAnalysis(assessment) {
+  const radarRows = mapRows(assessment.gap_radar, (item) => item).map((item) => {
+    const score = Math.max(0, Math.min(5, Math.round(Number(item.score || 0))));
+    return new TableRow({
+      children: [
+        cell(item.category, true, { fill: DOCX_COLORS.grayFill }),
+        ...[0, 1, 2, 3, 4, 5].map((value) => cell(value <= score ? 'X' : '', false, {
+          fill: value <= score ? scoreColor(score) : DOCX_COLORS.white,
+          alignment: AlignmentType.CENTER,
+          size: 18
+        })),
+        cell(item.score, true, {
+          fill: scoreColor(score),
+          alignment: AlignmentType.CENTER
+        }),
+        cell(item.source_gaps, false)
+      ]
+    });
+  });
+
+  return [
+    pageBreak(),
+    sectionTitle('03', 'Analise de gaps e maturidade', 'Gaps classificados e radar em matriz editavel para ajuste no Word.'),
+    docTable(['Gap', 'Categoria', 'Impacto', 'Classificacao', 'Recomendacao', 'Status'], mapRows(assessment.gap_map, (item) => [
+      item.description,
+      item.category,
+      item.impact,
+      item.classification,
+      item.recommendation,
+      item.status
+    ]), { fixed: true }),
+    docParagraph('Radar de gaps', { heading: HeadingLevel.HEADING_2 }),
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.FIXED,
+      rows: [
+        new TableRow({
+          tableHeader: true,
+          children: ['Categoria', '0', '1', '2', '3', '4', '5', 'Score', 'Gaps fonte'].map((header) => cell(header, true, {
+            fill: DOCX_COLORS.blue,
+            color: DOCX_COLORS.white,
+            size: 16,
+            alignment: AlignmentType.CENTER
+          }))
+        }),
+        ...(radarRows.length ? radarRows : [new TableRow({ children: [cell('Sem radar estruturado', false, { columnSpan: 9 })] })])
+      ]
+    }),
+    docParagraph('Observacao: o radar acima e uma matriz Word editavel. Grafico Office nativo ainda depende de uma etapa especifica de geracao de chart OOXML.', {
+      color: DOCX_COLORS.grayText,
+      size: 17
+    })
+  ];
+}
+
+function buildFlowSection(assessment) {
   const children = [
-    docParagraph('Assessment de Engenharia', { heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, size: 34 }),
-    docParagraph(safeText(client.name || 'Cliente não informado'), { alignment: AlignmentType.CENTER, bold: true, size: 24 }),
-    docParagraph('Documento executivo gerado a partir do assessment.json validado. Conteúdo pendente de revisão humana.', { alignment: AlignmentType.CENTER }),
-    docParagraph('1. Introdução', { heading: HeadingLevel.HEADING_1 }),
-    docParagraph('Este documento consolida o assessment estruturado a partir do arquivo importado no widget Assessment Report Builder. A saída é editável e deve ser revisada antes de uso oficial.'),
-    docParagraph('1.1 Contexto do Cliente', { heading: HeadingLevel.HEADING_2 }),
-    docTable(['Campo', 'Valor'], [
-      ['Cliente', client.name],
-      ['Área principal', client.business_area],
-      ['Escopo', client.assessment_scope],
-      ['Tipo de assessment', assessment.metadata && assessment.metadata.assessment_type],
-      ['Modo de geração', assessment.metadata && assessment.metadata.generation_mode]
-    ]),
-    docParagraph('2. Resumo Executivo', { heading: HeadingLevel.HEADING_1 }),
-    docParagraph(summary.current_state || 'Sem resumo executivo estruturado.'),
-    docParagraph('Principais dores', { heading: HeadingLevel.HEADING_2 })
+    pageBreak(),
+    sectionTitle('04', 'Fluxos AS-IS e TO-BE', 'Fluxos reconstruidos com tabelas editaveis, preservando etapas, areas, sistemas, entradas, saidas e problemas.')
   ];
 
-  (summary.main_pains || []).forEach((pain) => children.push(docBullet(pain)));
-  children.push(docParagraph(`Evidência: ${safeText(summary.evidence)}`));
-  children.push(docParagraph(`Confiança: ${safeText(summary.confidence || 'Não avaliada')}`));
-
-  children.push(docParagraph('3. Mapa de Softwares', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Área', 'Software', 'Uso', 'Dores', 'Integrações', 'Riscos', 'Oportunidades', 'Confiança'], mapRows(assessment.software_map, (item) => [
-    item.area,
-    item.software,
-    item.usage,
-    item.pain_points,
-    item.integrations,
-    item.risks,
-    item.opportunities,
-    item.confidence
-  ])));
-
-  children.push(docParagraph('4. Mapa de Processos', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Processo', 'Área responsável', 'Sistemas', 'Dores', 'Evidência', 'Confiança'], mapRows(assessment.process_map, (item) => [
-    item.name,
-    item.owner_area,
-    item.systems,
-    item.pain_points,
-    item.evidence,
-    item.confidence
-  ])));
-
-  children.push(docParagraph('5. Gaps Identificados', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Gap', 'Categoria', 'Impacto', 'Classificação', 'Evidência', 'Recomendação', 'Status'], mapRows(assessment.gap_map, (item) => [
-    item.description,
-    item.category,
-    item.impact,
-    item.classification,
-    item.evidence,
-    item.recommendation,
-    item.status
-  ])));
-
-  children.push(docParagraph('6. Radar de Gaps', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docParagraph('Representação inicial em tabela editável. A evolução para gráfico editável no Word será tratada em etapa específica.'));
-  children.push(docTable(['Categoria', 'Score', 'Gaps fonte'], mapRows(assessment.gap_radar, (item) => [
-    item.category,
-    item.score,
-    item.source_gaps
-  ])));
-
-  children.push(docParagraph('7. Fluxos', { heading: HeadingLevel.HEADING_1 }));
-  (assessment.flows || []).forEach((flow) => {
+  (assessment.flows || []).forEach((flow, flowIndex) => {
+    const steps = Array.isArray(flow.steps) ? flow.steps : [];
+    const visibleSteps = steps.slice(0, 6);
     children.push(docParagraph(`${safeText(flow.type)} - ${safeText(flow.name)}`, { heading: HeadingLevel.HEADING_2 }));
-    children.push(docParagraph(`Evidência: ${safeText(flow.evidence)} | Confiança: ${safeText(flow.confidence)}`));
-    children.push(docTable(['Ordem', 'Área', 'Atividade', 'Sistema', 'Entrada', 'Saída', 'Responsável', 'Problema'], mapRows(flow.steps, (step) => [
+    children.push(callout('Evidencia', `${safeText(flow.evidence)} | Confianca: ${safeText(flow.confidence)}`, flowIndex % 2 === 0 ? DOCX_COLORS.blueLight : DOCX_COLORS.cyanLight));
+    children.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.FIXED,
+      rows: [
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(`Etapa ${safeText(step.order)}`, true, {
+                fill: flow.type === 'TO-BE' ? DOCX_COLORS.green : DOCX_COLORS.yellow,
+                alignment: AlignmentType.CENTER,
+                size: 17
+              }))
+            : [cell('Sem etapas estruturadas', true, { fill: DOCX_COLORS.grayFill })]
+        }),
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(step.activity, true, { alignment: AlignmentType.CENTER, size: 17 }))
+            : [cell('Sem dados', false)]
+        }),
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(`${safeText(step.area)} | ${safeText(step.system)}`, false, {
+                fill: DOCX_COLORS.grayFill,
+                alignment: AlignmentType.CENTER,
+                size: 16
+              }))
+            : [cell('Sem dados', false)]
+        }),
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(step.issue || 'Sem problema registrado', false, {
+                fill: impactFill(step.issue || ''),
+                alignment: AlignmentType.CENTER,
+                size: 16
+              }))
+            : [cell('Sem dados', false)]
+        })
+      ]
+    }));
+    if (steps.length > visibleSteps.length) {
+      children.push(docParagraph(`Fluxo visual limitado aos 6 primeiros passos para preservar legibilidade. A tabela detalhada abaixo mantem os ${steps.length} passos.`, {
+        color: DOCX_COLORS.grayText,
+        size: 17
+      }));
+    }
+    children.push(docTable(['Ordem', 'Area', 'Atividade', 'Sistema', 'Entrada', 'Saida', 'Responsavel', 'Problema'], mapRows(steps, (step) => [
       step.order,
       step.area,
       step.activity,
@@ -285,60 +560,134 @@ function buildDocxChildren(assessment) {
       step.output,
       step.responsible,
       step.issue
-    ])));
+    ]), { fixed: true, headerFill: flow.type === 'TO-BE' ? '2E7D32' : DOCX_COLORS.blueDark }));
   });
 
-  children.push(docParagraph('8. Riscos', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Risco', 'Probabilidade', 'Impacto', 'Mitigação', 'Evidência', 'Confiança'], mapRows(assessment.risks, (item) => [
-    item.description,
-    item.probability,
-    item.impact,
-    item.mitigation,
-    item.evidence,
-    item.confidence
-  ])));
-
-  children.push(docParagraph('9. Recomendações', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Prioridade', 'Título', 'Descrição', 'Esforço', 'Gaps relacionados', 'Status'], mapRows(assessment.recommendations, (item) => [
-    item.priority,
-    item.title,
-    item.description,
-    item.effort,
-    item.related_gaps,
-    item.status
-  ])));
-
-  children.push(docParagraph('10. Roadmap', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Fase', 'Título', 'Descrição', 'Dependências', 'Recomendações relacionadas'], mapRows(assessment.roadmap, (item) => [
-    item.phase,
-    item.title,
-    item.description,
-    item.dependencies,
-    item.related_recommendations
-  ])));
-
-  children.push(docParagraph('11. Perguntas Abertas', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Pergunta', 'Tópico', 'Responsável', 'Status'], mapRows(assessment.open_questions, (item) => [
-    item.question,
-    item.topic,
-    item.responsible,
-    item.status
-  ])));
-
-  children.push(docParagraph('12. Controle de Revisão', { heading: HeadingLevel.HEADING_1 }));
-  children.push(docTable(['Seção', 'Status'], Object.entries(assessment.review_status || {}).map(([key, value]) => [key, value])));
-
   return children;
+}
+
+function buildRecommendationsAndRoadmap(assessment) {
+  return [
+    pageBreak(),
+    sectionTitle('05', 'Direcionamentos, riscos e roadmap', 'Priorizacao editavel para transformar diagnostico em plano de execucao.'),
+    docParagraph('Riscos', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Risco', 'Probabilidade', 'Impacto', 'Mitigacao', 'Evidencia'], mapRows(assessment.risks, (item) => [
+      item.description,
+      item.probability,
+      item.impact,
+      item.mitigation,
+      item.evidence
+    ]), { fixed: true }),
+    docParagraph('Recomendacoes', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Prioridade', 'Titulo', 'Descricao', 'Esforco', 'Gaps relacionados', 'Status'], mapRows(assessment.recommendations, (item) => [
+      item.priority,
+      item.title,
+      item.description,
+      item.effort,
+      item.related_gaps,
+      item.status
+    ]), { fixed: true }),
+    docParagraph('Roadmap em ondas', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Fase', 'Titulo', 'Descricao', 'Dependencias', 'Recomendacoes relacionadas'], mapRows(assessment.roadmap, (item) => [
+      item.phase,
+      item.title,
+      item.description,
+      item.dependencies,
+      item.related_recommendations
+    ]), { fixed: true, headerFill: DOCX_COLORS.blueDark }),
+    docParagraph('Perguntas abertas', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Pergunta', 'Topico', 'Responsavel', 'Status'], mapRows(assessment.open_questions, (item) => [
+      item.question,
+      item.topic,
+      item.responsible,
+      item.status
+    ]), { fixed: true }),
+    docParagraph('Controle de revisao', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Secao', 'Status'], Object.entries(assessment.review_status || {}).map(([key, value]) => [key, value]), { fixed: true })
+  ];
+}
+
+function buildDocxChildren(assessment) {
+  return [
+    ...buildCover(assessment),
+    ...buildExecutiveSnapshot(assessment),
+    ...buildSoftwareLandscape(assessment),
+    ...buildGapAnalysis(assessment),
+    ...buildFlowSection(assessment),
+    ...buildRecommendationsAndRoadmap(assessment)
+  ];
 }
 
 async function buildAssessmentDocx(assessment) {
   const document = new Document({
     creator: 'Assessment Report Builder',
     title: `Assessment ${safeText(assessment.client && assessment.client.name)}`,
-    description: 'Relatório editável gerado a partir de assessment.json validado.',
+    description: 'Relatorio editavel gerado a partir de assessment.json validado.',
+    styles: {
+      paragraphStyles: [
+        {
+          id: 'Title',
+          name: 'Title',
+          run: { size: 36, bold: true, color: DOCX_COLORS.navy },
+          paragraph: { spacing: { after: 240 } }
+        },
+        {
+          id: 'Heading1',
+          name: 'Heading 1',
+          basedOn: 'Normal',
+          next: 'Normal',
+          quickFormat: true,
+          run: { size: 28, bold: true, color: DOCX_COLORS.blueDark },
+          paragraph: { spacing: { before: 260, after: 160 } }
+        },
+        {
+          id: 'Heading2',
+          name: 'Heading 2',
+          basedOn: 'Normal',
+          next: 'Normal',
+          quickFormat: true,
+          run: { size: 23, bold: true, color: DOCX_COLORS.navy },
+          paragraph: { spacing: { before: 180, after: 100 } }
+        }
+      ]
+    },
     sections: [
       {
-        properties: {},
+        properties: {
+          page: {
+            margin: {
+              top: 900,
+              right: 720,
+              bottom: 900,
+              left: 720
+            }
+          }
+        },
+        headers: {
+          default: new Header({
+            children: [
+              docParagraph('Assessment Report Builder | Documento executivo editavel', {
+                alignment: AlignmentType.RIGHT,
+                color: DOCX_COLORS.grayText,
+                size: 16,
+                after: 80
+              })
+            ]
+          })
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [
+                  textRun('Pagina ', { size: 16, color: DOCX_COLORS.grayText }),
+                  new TextRun({ children: [PageNumber.CURRENT], size: 16, color: DOCX_COLORS.grayText })
+                ]
+              })
+            ]
+          })
+        },
         children: buildDocxChildren(assessment)
       }
     ]
