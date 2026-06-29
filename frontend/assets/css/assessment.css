@@ -59,7 +59,9 @@ body {
 .assessment-statusbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  max-width: 100%;
   font-size: 12px;
 }
 
@@ -94,25 +96,25 @@ body {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px;
+  padding: 12px;
   scrollbar-gutter: stable;
 }
 
 .assessment-panel {
   width: min(1040px, 100%);
-  margin: 0 auto 14px;
-  padding: 18px;
+  margin: 0 auto 12px;
+  padding: 16px;
   border: 1px solid #dfe5ee;
-  border-radius: 14px;
+  border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 10px 30px rgba(22, 37, 64, 0.07);
 }
 
 .assessment-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
-  gap: 18px;
-  align-items: center;
+  display: block;
+  min-height: 0;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .assessment-eyebrow,
@@ -127,13 +129,14 @@ body {
 }
 
 .assessment-title {
-  margin: 0 0 10px;
-  font-size: clamp(28px, 3.4vw, 44px);
-  line-height: 1.03;
-  letter-spacing: -0.035em;
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.12;
+  letter-spacing: 0;
 }
 
 .assessment-description {
+  display: none;
   margin: 0;
   color: #4d5a6e;
   font-size: 15px;
@@ -141,6 +144,7 @@ body {
 }
 
 .assessment-master-rule {
+  display: none;
   padding: 18px;
   border-radius: 14px;
   color: #ffffff;
@@ -167,12 +171,12 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .assessment-section-heading h2 {
   margin: 0;
-  font-size: 21px;
+  font-size: 20px;
 }
 
 .assessment-muted {
@@ -183,7 +187,12 @@ body {
 .assessment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
+}
+
+.assessment-scroll > .assessment-panel:nth-of-type(2) {
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .assessment-field {
@@ -211,8 +220,8 @@ body {
 
 .assessment-input,
 .assessment-select {
-  min-height: 40px;
-  padding: 0 11px;
+  min-height: 36px;
+  padding: 0 10px;
 }
 
 .assessment-textarea {
@@ -346,10 +355,18 @@ body {
   }
 
   .assessment-scroll {
-    padding: 10px;
+    padding: 8px;
   }
 
   .assessment-panel {
-    padding: 14px;
+    padding: 12px;
+  }
+
+  .assessment-title {
+    font-size: 24px;
+  }
+
+  .assessment-pill {
+    white-space: normal;
   }
 }
