@@ -960,6 +960,260 @@ function buildAssessmentPrompt(input) {
   ].join('\n');
 }
 
+function normalizeAccentless(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function normalizeEnum(value, allowedValues, fallback) {
+  const normalizedValue = normalizeAccentless(value);
+  const exact = allowedValues.find((allowed) => String(allowed) === String(value));
+  if (exact) return exact;
+
+  return allowedValues.find((allowed) => normalizeAccentless(allowed) === normalizedValue) || fallback;
+}
+
+function nullableText(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+function requiredText(value, fallback) {
+  return nullableText(value) || fallback;
+}
+
+function stringArray(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      if (item == null) return null;
+      if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+        return nullableText(item);
+      }
+      if (typeof item === 'object') {
+        return nullableText(item.id || item.title || item.name || item.description || item.question || item.category);
+      }
+      return null;
+    }).filter(Boolean);
+  }
+
+  if (value == null || value === '') {
+    return [];
+  }
+
+  return String(value)
+    .split(/\r?\n|;|\u2022/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function objectArray(value) {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)) : [];
+}
+
+function positiveInteger(value, fallback) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function boundedScore(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(5, number));
+}
+
+function normalizeConfidence(value) {
+  return normalizeEnum(value, ['Baixa', 'Média', 'Alta', 'Não avaliada'], 'Não avaliada');
+}
+
+function normalizeReviewState(value) {
+  return normalizeEnum(value, ['Pendente', 'Revisado', 'Aprovado', 'Rejeitado', 'Regenerar'], 'Pendente');
+}
+
+function normalizeImpact(value) {
+  return normalizeEnum(value, ['Baixo', 'Médio', 'Alto', 'Crítico', 'Não avaliado'], 'Não avaliado');
+}
+
+function normalizePriority(value) {
+  return normalizeEnum(value, ['Baixa', 'Média', 'Alta', 'Crítica', 'Não avaliada'], 'Não avaliada');
+}
+
+function normalizeEffort(value) {
+  return normalizeEnum(value, ['Baixo', 'Médio', 'Alto', 'Não avaliado'], 'Não avaliado');
+}
+
+function normalizeClassification(value) {
+  return normalizeEnum(value, ['Fato', 'Hipótese', 'Pendência'], 'Pendência');
+}
+
+function normalizeGenerationMode(value) {
+  return normalizeEnum(value, ['conservador', 'consultivo', 'executivo'], 'consultivo');
+}
+
+function normalizeFlowType(value) {
+  const normalized = normalizeAccentless(value);
+  if (normalized.includes('to')) return 'TO-BE';
+  return 'AS-IS';
+}
+
+function normalizeOpenQuestionStatus(value) {
+  return normalizeEnum(value, ['Aberta', 'Respondida', 'Descartada'], 'Aberta');
+}
+
+function normalizeAiAssessment(rawAssessment, input) {
+  const raw = rawAssessment && typeof rawAssessment === 'object' && !Array.isArray(rawAssessment) ? rawAssessment : {};
+  const now = new Date().toISOString();
+  const clientInput = input.client && typeof input.client === 'object' ? input.client : {};
+  const metadata = raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {};
+  const client = raw.client && typeof raw.client === 'object' ? raw.client : {};
+  const summary = raw.executive_summary && typeof raw.executive_summary === 'object' ? raw.executive_summary : {};
+  const meetingSummary = raw.meeting_summary && typeof raw.meeting_summary === 'object' ? raw.meeting_summary : {};
+  const appendix = raw.appendix && typeof raw.appendix === 'object' && !Array.isArray(raw.appendix) ? raw.appendix : {};
+  const transcriptText = String(input.transcript_text || '');
+
+  return {
+    metadata: {
+      assessment_id: requiredText(metadata.assessment_id, `ASSESS-${Date.now()}`),
+      version: requiredText(metadata.version, '0.1'),
+      status: 'draft',
+      assessment_type: requiredText(input.assessment_type || metadata.assessment_type, 'plm_assessment'),
+      generation_mode: normalizeGenerationMode(input.generation_mode || metadata.generation_mode),
+      created_at: requiredText(metadata.created_at, now),
+      updated_at: now
+    },
+    client: {
+      name: nullableText(client.name) || nullableText(clientInput.name),
+      business_area: nullableText(client.business_area) || nullableText(clientInput.business_area),
+      assessment_scope: nullableText(client.assessment_scope),
+      participants: stringArray(client.participants)
+    },
+    input_sources: {
+      transcript: normalizeSource(input.transcript_source, 'local_upload'),
+      template: normalizeSource(input.template_source, 'not_selected')
+    },
+    executive_summary: {
+      current_state: nullableText(summary.current_state),
+      main_pains: stringArray(summary.main_pains),
+      overall_maturity: nullableText(summary.overall_maturity),
+      evidence: nullableText(summary.evidence),
+      confidence: normalizeConfidence(summary.confidence)
+    },
+    meeting_summary: {
+      raw_length: transcriptText.trim().length,
+      word_count: countWords(transcriptText),
+      note: requiredText(meetingSummary.note, 'Assessment estruturado por IA a partir de documento importado, pendente de revisão humana.'),
+      raw_excerpt: nullableText(meetingSummary.raw_excerpt) || transcriptText.trim().slice(0, 500)
+    },
+    software_map: objectArray(raw.software_map).map((item, index) => ({
+      id: requiredText(item.id, `software_${index + 1}`),
+      area: nullableText(item.area),
+      software: nullableText(item.software),
+      usage: nullableText(item.usage),
+      pain_points: stringArray(item.pain_points),
+      integrations: stringArray(item.integrations),
+      risks: stringArray(item.risks),
+      opportunities: stringArray(item.opportunities),
+      evidence: nullableText(item.evidence),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    process_map: objectArray(raw.process_map).map((item, index) => ({
+      id: requiredText(item.id, `process_${index + 1}`),
+      name: nullableText(item.name),
+      owner_area: nullableText(item.owner_area),
+      systems: stringArray(item.systems),
+      pain_points: stringArray(item.pain_points),
+      evidence: nullableText(item.evidence),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    gap_map: objectArray(raw.gap_map).map((item, index) => ({
+      id: requiredText(item.id, `gap_${index + 1}`),
+      description: nullableText(item.description),
+      category: nullableText(item.category),
+      impact: normalizeImpact(item.impact),
+      evidence: nullableText(item.evidence),
+      confidence: normalizeConfidence(item.confidence),
+      classification: normalizeClassification(item.classification),
+      recommendation: nullableText(item.recommendation),
+      status: normalizeReviewState(item.status)
+    })),
+    gap_radar: objectArray(raw.gap_radar).map((item) => ({
+      category: requiredText(item.category, 'Não categorizado'),
+      score: boundedScore(item.score),
+      source_gaps: stringArray(item.source_gaps)
+    })),
+    flows: objectArray(raw.flows).map((flow, flowIndex) => ({
+      id: requiredText(flow.id, `flow_${flowIndex + 1}`),
+      name: nullableText(flow.name),
+      type: normalizeFlowType(flow.type),
+      steps: objectArray(flow.steps).map((step, stepIndex) => ({
+        order: positiveInteger(step.order, stepIndex + 1),
+        area: nullableText(step.area),
+        activity: nullableText(step.activity),
+        system: nullableText(step.system),
+        input: nullableText(step.input),
+        output: nullableText(step.output),
+        responsible: nullableText(step.responsible),
+        issue: nullableText(step.issue)
+      })),
+      issues: stringArray(flow.issues),
+      evidence: nullableText(flow.evidence),
+      confidence: normalizeConfidence(flow.confidence)
+    })),
+    risks: objectArray(raw.risks).map((item, index) => ({
+      id: requiredText(item.id, `risk_${index + 1}`),
+      description: nullableText(item.description),
+      probability: normalizeConfidence(item.probability),
+      impact: normalizeImpact(item.impact),
+      mitigation: nullableText(item.mitigation),
+      evidence: nullableText(item.evidence),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    recommendations: objectArray(raw.recommendations).map((item, index) => ({
+      id: requiredText(item.id, `recommendation_${index + 1}`),
+      title: nullableText(item.title),
+      description: nullableText(item.description),
+      priority: normalizePriority(item.priority),
+      effort: normalizeEffort(item.effort),
+      related_gaps: stringArray(item.related_gaps),
+      status: normalizeReviewState(item.status)
+    })),
+    roadmap: objectArray(raw.roadmap).map((item, index) => ({
+      id: requiredText(item.id, `roadmap_${index + 1}`),
+      phase: nullableText(item.phase),
+      title: nullableText(item.title),
+      description: nullableText(item.description),
+      dependencies: stringArray(item.dependencies),
+      related_recommendations: stringArray(item.related_recommendations)
+    })),
+    open_questions: objectArray(raw.open_questions).map((item, index) => ({
+      id: requiredText(item.id, `question_${index + 1}`),
+      question: requiredText(item.question, 'Pergunta pendente de detalhamento.'),
+      topic: nullableText(item.topic),
+      responsible: nullableText(item.responsible),
+      status: normalizeOpenQuestionStatus(item.status)
+    })),
+    appendix: {
+      ...appendix,
+      transcript_processing_status: 'received',
+      ai_extraction_status: 'generated',
+      ai_provider: 'gemini',
+      ai_model: geminiModel,
+      ai_generated_at: now,
+      schema_repair_status: 'normalized'
+    },
+    review_status: {
+      executive_summary: normalizeReviewState(raw.review_status && raw.review_status.executive_summary),
+      software_map: normalizeReviewState(raw.review_status && raw.review_status.software_map),
+      gap_map: normalizeReviewState(raw.review_status && raw.review_status.gap_map),
+      flows: normalizeReviewState(raw.review_status && raw.review_status.flows),
+      recommendations: normalizeReviewState(raw.review_status && raw.review_status.recommendations)
+    }
+  };
+}
+
 async function createAssessmentWithGemini(input) {
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({
@@ -972,52 +1226,7 @@ async function createAssessmentWithGemini(input) {
   const result = await model.generateContent(buildAssessmentPrompt(input));
   const response = result.response;
   const jsonText = response.text();
-  const assessment = extractJsonObject(jsonText);
-  const now = new Date().toISOString();
-
-  assessment.metadata = assessment.metadata && typeof assessment.metadata === 'object' ? assessment.metadata : {};
-  assessment.metadata.assessment_id = assessment.metadata.assessment_id || `ASSESS-${Date.now()}`;
-  assessment.metadata.version = assessment.metadata.version || '0.1';
-  assessment.metadata.status = 'draft';
-  assessment.metadata.assessment_type = input.assessment_type || assessment.metadata.assessment_type || 'plm_assessment';
-  assessment.metadata.generation_mode = input.generation_mode || assessment.metadata.generation_mode || 'consultivo';
-  assessment.metadata.created_at = assessment.metadata.created_at || now;
-  assessment.metadata.updated_at = now;
-
-  assessment.client = assessment.client && typeof assessment.client === 'object' ? assessment.client : {};
-  const client = input.client && typeof input.client === 'object' ? input.client : {};
-  assessment.client.name = assessment.client.name || normalizeOptionalString(client.name);
-  assessment.client.business_area = assessment.client.business_area || normalizeOptionalString(client.business_area);
-  assessment.client.assessment_scope = Object.prototype.hasOwnProperty.call(assessment.client, 'assessment_scope') ? assessment.client.assessment_scope : null;
-  assessment.client.participants = Array.isArray(assessment.client.participants) ? assessment.client.participants : [];
-
-  assessment.input_sources = {
-    transcript: normalizeSource(input.transcript_source, 'local_upload'),
-    template: normalizeSource(input.template_source, 'not_selected')
-  };
-
-  assessment.meeting_summary = assessment.meeting_summary && typeof assessment.meeting_summary === 'object' ? assessment.meeting_summary : {};
-  assessment.meeting_summary.raw_length = input.transcript_text.trim().length;
-  assessment.meeting_summary.word_count = countWords(input.transcript_text);
-  assessment.meeting_summary.note = assessment.meeting_summary.note || 'Assessment estruturado por IA a partir de documento importado, pendente de revisão humana.';
-  assessment.meeting_summary.raw_excerpt = assessment.meeting_summary.raw_excerpt || input.transcript_text.trim().slice(0, 500);
-
-  assessment.appendix = assessment.appendix && typeof assessment.appendix === 'object' ? assessment.appendix : {};
-  assessment.appendix.transcript_processing_status = 'received';
-  assessment.appendix.ai_extraction_status = 'generated';
-  assessment.appendix.ai_provider = 'gemini';
-  assessment.appendix.ai_model = geminiModel;
-  assessment.appendix.ai_generated_at = now;
-
-  assessment.review_status = {
-    executive_summary: 'Pendente',
-    software_map: 'Pendente',
-    gap_map: 'Pendente',
-    flows: 'Pendente',
-    recommendations: 'Pendente'
-  };
-
-  return assessment;
+  return normalizeAiAssessment(extractJsonObject(jsonText), input);
 }
 
 app.get('/', sendFrontendFile('widget.html', 'html'));
