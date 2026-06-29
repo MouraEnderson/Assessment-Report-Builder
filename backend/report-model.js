@@ -42,6 +42,62 @@ function flattenFlowSteps(flows) {
   }];
 }
 
+function flowStepText(step, fallback) {
+  if (!step || typeof step !== 'object') return fallback;
+
+  const parts = [
+    safeText(step.activity, ''),
+    safeText(step.system, ''),
+    safeText(step.issue, '')
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(' | ') : fallback;
+}
+
+function buildFlowVisuals(flows) {
+  const rows = compactArray(flows).map((flow) => {
+    const steps = compactArray(flow.steps);
+    const visibleSteps = steps.slice(0, 6);
+    const overflow = steps.length > visibleSteps.length
+      ? `+${steps.length - visibleSteps.length} etapa(s) na tabela detalhada`
+      : 'Fluxo completo nesta visao';
+
+    return {
+      flow_name: safeText(flow.name, 'Fluxo nao nomeado'),
+      flow_type: safeText(flow.type, 'AS-IS'),
+      evidence: safeText(flow.evidence, 'Nao evidenciado no rascunho importado.'),
+      step_1: flowStepText(visibleSteps[0], 'Etapa 1 nao evidenciada'),
+      step_2: flowStepText(visibleSteps[1], 'Etapa 2 nao evidenciada'),
+      step_3: flowStepText(visibleSteps[2], 'Etapa 3 nao evidenciada'),
+      step_4: flowStepText(visibleSteps[3], 'Etapa 4 nao evidenciada'),
+      step_5: flowStepText(visibleSteps[4], 'Etapa 5 nao evidenciada'),
+      step_6: flowStepText(visibleSteps[5], 'Etapa 6 nao evidenciada'),
+      overflow_note: overflow
+    };
+  });
+
+  return rows.length ? rows : [{
+    flow_name: 'Fluxo nao evidenciado',
+    flow_type: 'Pendente',
+    evidence: 'Nao evidenciado no rascunho importado.',
+    step_1: 'Etapa 1 nao evidenciada',
+    step_2: 'Etapa 2 nao evidenciada',
+    step_3: 'Etapa 3 nao evidenciada',
+    step_4: 'Etapa 4 nao evidenciada',
+    step_5: 'Etapa 5 nao evidenciada',
+    step_6: 'Etapa 6 nao evidenciada',
+    overflow_note: 'Registrar pergunta aberta para validacao.'
+  }];
+}
+
+function radarRiskLevel(score) {
+  if (score >= 4) return 'Critico';
+  if (score >= 3) return 'Alto';
+  if (score >= 2) return 'Medio';
+  if (score >= 1) return 'Baixo';
+  return 'Nao avaliado';
+}
+
 function buildRadarRows(gapRadar) {
   const rows = compactArray(gapRadar).map((item) => {
     const score = Math.max(0, Math.min(5, Math.round(Number(item.score || 0))));
@@ -49,6 +105,8 @@ function buildRadarRows(gapRadar) {
     return {
       category: safeText(item.category),
       score: safeText(score),
+      score_label: `${score}/5`,
+      risk_level: radarRiskLevel(score),
       level_0: score >= 0 ? 'X' : '',
       level_1: score >= 1 ? 'X' : '',
       level_2: score >= 2 ? 'X' : '',
@@ -62,6 +120,8 @@ function buildRadarRows(gapRadar) {
   return rows.length ? rows : [{
     category: 'Maturidade nao evidenciada',
     score: '-',
+    score_label: '-',
+    risk_level: 'Nao avaliado',
     level_0: '',
     level_1: '',
     level_2: '',
@@ -70,6 +130,23 @@ function buildRadarRows(gapRadar) {
     level_5: '',
     source_gaps_text: 'Nao evidenciado no rascunho importado.'
   }];
+}
+
+function buildRadarSummary(gapRadar) {
+  const rows = compactArray(gapRadar);
+  if (!rows.length) return 'Radar nao evidenciado no rascunho importado.';
+
+  const scoredRows = rows.map((item) => ({
+    category: safeText(item.category),
+    score: Math.max(0, Math.min(5, Number(item.score || 0)))
+  }));
+  const highRows = scoredRows.filter((item) => item.score >= 4);
+  const average = scoredRows.reduce((sum, item) => sum + item.score, 0) / scoredRows.length;
+  const priorityText = highRows.length
+    ? `Prioridade critica: ${highRows.map((item) => item.category).join(', ')}.`
+    : 'Nenhuma categoria critica evidenciada.';
+
+  return `Media geral ${average.toFixed(1)}/5. ${priorityText}`;
 }
 
 function buildReportModel(assessment) {
@@ -132,7 +209,9 @@ function buildReportModel(assessment) {
       evidence: safeText(item.evidence),
       status: safeText(item.status)
     })),
+    gap_radar_summary: buildRadarSummary(source.gap_radar),
     gap_radar: buildRadarRows(source.gap_radar),
+    flow_visuals: buildFlowVisuals(source.flows),
     flow_steps: flattenFlowSteps(source.flows),
     risks: compactArray(source.risks).map((item) => ({
       description: safeText(item.description),

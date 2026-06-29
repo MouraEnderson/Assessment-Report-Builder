@@ -311,10 +311,11 @@ function gapSection() {
       ['description', 'category', 'impact', 'recommendation', 'evidence', 'status']
     ),
     paragraph('Radar de gaps editavel', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    callout('Leitura executiva do radar', '{gap_radar_summary}', COLORS.amber),
     dataTable(
-      ['Categoria', '0', '1', '2', '3', '4', '5', 'Score', 'Gaps fonte'],
+      ['Categoria', '0', '1', '2', '3', '4', '5', 'Score', 'Nivel', 'Gaps fonte'],
       'gap_radar',
-      ['category', 'level_0', 'level_1', 'level_2', 'level_3', 'level_4', 'level_5', 'score', 'source_gaps_text'],
+      ['category', 'level_0', 'level_1', 'level_2', 'level_3', 'level_4', 'level_5', 'score_label', 'risk_level', 'source_gaps_text'],
       { headerFill: COLORS.blue }
     ),
     paragraph('Riscos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
@@ -331,6 +332,14 @@ function gapSection() {
 function flowSection() {
   return [
     ...section('04', 'Fluxos AS-IS e TO-BE', 'Fluxos reconstruidos como matriz editavel para revisao e ajuste.'),
+    paragraph('Fluxo visual resumido', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    dataTable(
+      ['Fluxo', 'Tipo', 'Etapa 1', 'Etapa 2', 'Etapa 3', 'Etapa 4', 'Etapa 5', 'Etapa 6', 'Observacao'],
+      'flow_visuals',
+      ['flow_name', 'flow_type', 'step_1', 'step_2', 'step_3', 'step_4', 'step_5', 'step_6', 'overflow_note'],
+      { headerFill: COLORS.blue, bodySize: 14 }
+    ),
+    paragraph('Detalhamento do fluxo', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
     dataTable(
       ['Fluxo', 'Tipo', 'Ordem', 'Entrada', 'Atividade', 'Responsavel', 'Saida', 'Sistema', 'Area', 'Ponto de atencao'],
       'flow_steps',

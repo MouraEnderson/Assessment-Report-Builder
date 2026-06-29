@@ -48,6 +48,8 @@ O DOCX ativo contem apenas:
 - secoes genericas numeradas;
 - tabelas editaveis;
 - matriz/radar de gaps editavel em tabela;
+- visao horizontal de fluxo editavel, limitada a 6 etapas por fluxo;
+- tabela detalhada de etapas de fluxo;
 - placeholders `docxtemplater`;
 - loops para listas do `assessment.json`.
 
@@ -83,6 +85,7 @@ Loops:
 {#gaps}...{/gaps}
 {#gap_radar}...{/gap_radar}
 {#risks}...{/risks}
+{#flow_visuals}...{/flow_visuals}
 {#flow_steps}...{/flow_steps}
 {#recommendations}...{/recommendations}
 {#roadmap}...{/roadmap}
@@ -134,8 +137,10 @@ Endpoint local `/api/assessment/export-docx`:
 - `Content-Type` correto de DOCX;
 - DOCX abriu no Microsoft Word;
 - conteudo renderizado: cliente, resumo executivo e gap;
-- 19 tabelas editaveis no Microsoft Word;
-- radar de gaps editavel renderizado;
+- 20 tabelas editaveis no Microsoft Word;
+- radar de gaps editavel renderizado com resumo executivo, score e nivel;
+- fluxo visual horizontal editavel renderizado;
+- tabela detalhada de fluxo preservada;
 - nenhum termo legado;
 - nenhum placeholder operacional.
 
@@ -147,11 +152,10 @@ Validacao negativa:
 
 Este corte ainda nao tenta reproduzir todos os objetos visuais do template oficial antigo.
 
-Ele melhora a estrutura visual limpa com capa, secoes, caixas, tabelas e radar editavel, mantendo a prioridade de conteudo correto e sem contaminacao.
+Ele melhora a estrutura visual limpa com capa, secoes, caixas, tabelas, radar editavel e fluxo horizontal editavel, mantendo a prioridade de conteudo correto e sem contaminacao.
 
 A proxima etapa visual deve reconstruir:
 
-- fluxo visual em formato mais proximo do exemplo oficial;
 - grafico Office nativo, caso a editabilidade do grafico seja requisito fechado;
 - refinamento de capa e espacamentos com base em comparacao visual.
 
