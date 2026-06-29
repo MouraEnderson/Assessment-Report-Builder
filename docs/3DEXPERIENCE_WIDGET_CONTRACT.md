@@ -38,7 +38,7 @@ Características:
 - XML declaration;
 - XHTML 1.0 Strict doctype;
 - namespace xmlns:widget="http://www.netvibes.com/ns/";
-- bootstrap JavaScript estável;
+- CSS e JavaScript externos versionados;
 - nenhum iframe;
 - nenhum CSS inline obrigatório;
 - body inicial mínimo;
@@ -47,43 +47,22 @@ Características:
 
 ---
 
-## Bootstrap oficial
+## Carregamento oficial
 
 ```text
-frontend/assets/js/assessment-bootstrap.js
+frontend/widget.html
 ```
 
 Responsabilidades:
 
 ```text
-- carregar o manifesto oficial em /api/widget/manifest;
-- carregar o CSS versionado indicado pelo manifesto;
-- carregar o runtime JS versionado indicado pelo manifesto;
-- exibir erro visível se CSS/runtime não carregarem.
+- declarar o CSS externo versionado;
+- declarar o runtime JS externo versionado;
+- manter o body inicial mínimo;
+- preservar o link oficial sem query string.
 ```
 
-O bootstrap é estável. O link oficial continua `/` e não recebe query string. A versão operacional é resolvida pelo manifesto.
-
----
-
-## Manifesto oficial
-
-```text
-GET /api/widget/manifest
-```
-
-Resposta esperada:
-
-```json
-{
-  "ok": true,
-  "build": "assessment-0.4.1",
-  "css": "/assets/css/assessment.css?build=assessment-0.4.1",
-  "runtime": "/assets/js/assessment-runtime.js?build=assessment-0.4.1"
-}
-```
-
-A query string só existe nos assets internos carregados pelo bootstrap. Ela não faz parte do link oficial do widget.
+A query string só existe nos assets internos declarados pelo widget. Ela não faz parte do link oficial do widget.
 
 ---
 
@@ -157,10 +136,8 @@ Render não autentica no 3DEXPERIENCE.
 ## Rotas oficiais
 
 ```text
-GET  /                                  → widget oficial com bootstrap
+GET  /                                  → widget oficial Additional App
 GET  /widget.html                       → mesmo widget, diagnóstico
-GET  /assets/js/assessment-bootstrap.js → bootstrap estável
-GET  /api/widget/manifest               → manifesto versionado dos assets
 GET  /assets/css/assessment.css         → estilo do widget
 GET  /assets/js/assessment-runtime.js   → runtime do widget
 GET  /health                            → health check
@@ -192,8 +169,6 @@ No 3DEXPERIENCE:
 
 ```text
 - o link oficial abre no Additional App;
-- bootstrap estável executa;
-- manifesto carrega;
 - CSS externo carrega;
 - runtime JS externo executa;
 - status do backend fica online;

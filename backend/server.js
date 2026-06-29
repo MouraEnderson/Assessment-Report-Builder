@@ -7,8 +7,8 @@ const Ajv2020 = require('ajv/dist/2020');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
-const serviceVersion = process.env.SERVICE_VERSION || '0.4.2';
-const widgetBuild = 'assessment-0.4.2';
+const serviceVersion = process.env.SERVICE_VERSION || '0.4.3';
+const widgetBuild = `assessment-${serviceVersion}`;
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
