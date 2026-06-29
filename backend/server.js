@@ -6,6 +6,19 @@ const helmet = require('helmet');
 const Ajv2020 = require('ajv/dist/2020');
 const mammoth = require('mammoth');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const {
+  AlignmentType,
+  BorderStyle,
+  Document,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType
+} = require('docx');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
@@ -129,6 +142,209 @@ function extractJsonObject(text) {
   }
 
   return JSON.parse(candidate.slice(first, last + 1));
+}
+
+function safeText(value) {
+  if (value == null || value === '') return '-';
+  if (Array.isArray(value)) return value.filter(Boolean).join('; ') || '-';
+  return String(value);
+}
+
+function docParagraph(text, options = {}) {
+  return new Paragraph({
+    heading: options.heading,
+    alignment: options.alignment,
+    spacing: { after: options.after == null ? 160 : options.after },
+    children: [
+      new TextRun({
+        text: safeText(text),
+        bold: Boolean(options.bold),
+        size: options.size
+      })
+    ]
+  });
+}
+
+function docBullet(text) {
+  return new Paragraph({
+    bullet: { level: 0 },
+    spacing: { after: 80 },
+    children: [new TextRun(safeText(text))]
+  });
+}
+
+function cell(text, bold = false) {
+  return new TableCell({
+    margins: { top: 100, bottom: 100, left: 120, right: 120 },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'D9E2EF' }
+    },
+    children: [
+      new Paragraph({
+        children: [new TextRun({ text: safeText(text), bold, size: 18 })]
+      })
+    ]
+  });
+}
+
+function docTable(headers, rows) {
+  const safeRows = Array.isArray(rows) && rows.length ? rows : [['Sem dados estruturados.']];
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({ children: headers.map((header) => cell(header, true)) }),
+      ...safeRows.map((row) => new TableRow({ children: row.map((value) => cell(value)) }))
+    ]
+  });
+}
+
+function mapRows(items, mapper) {
+  return Array.isArray(items) && items.length ? items.map(mapper) : [];
+}
+
+function buildDocxChildren(assessment) {
+  const summary = assessment.executive_summary || {};
+  const client = assessment.client || {};
+  const children = [
+    docParagraph('Assessment de Engenharia', { heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, size: 34 }),
+    docParagraph(safeText(client.name || 'Cliente não informado'), { alignment: AlignmentType.CENTER, bold: true, size: 24 }),
+    docParagraph('Documento executivo gerado a partir do assessment.json validado. Conteúdo pendente de revisão humana.', { alignment: AlignmentType.CENTER }),
+    docParagraph('1. Introdução', { heading: HeadingLevel.HEADING_1 }),
+    docParagraph('Este documento consolida o assessment estruturado a partir do arquivo importado no widget Assessment Report Builder. A saída é editável e deve ser revisada antes de uso oficial.'),
+    docParagraph('1.1 Contexto do Cliente', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Campo', 'Valor'], [
+      ['Cliente', client.name],
+      ['Área principal', client.business_area],
+      ['Escopo', client.assessment_scope],
+      ['Tipo de assessment', assessment.metadata && assessment.metadata.assessment_type],
+      ['Modo de geração', assessment.metadata && assessment.metadata.generation_mode]
+    ]),
+    docParagraph('2. Resumo Executivo', { heading: HeadingLevel.HEADING_1 }),
+    docParagraph(summary.current_state || 'Sem resumo executivo estruturado.'),
+    docParagraph('Principais dores', { heading: HeadingLevel.HEADING_2 })
+  ];
+
+  (summary.main_pains || []).forEach((pain) => children.push(docBullet(pain)));
+  children.push(docParagraph(`Evidência: ${safeText(summary.evidence)}`));
+  children.push(docParagraph(`Confiança: ${safeText(summary.confidence || 'Não avaliada')}`));
+
+  children.push(docParagraph('3. Mapa de Softwares', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Área', 'Software', 'Uso', 'Dores', 'Integrações', 'Riscos', 'Oportunidades', 'Confiança'], mapRows(assessment.software_map, (item) => [
+    item.area,
+    item.software,
+    item.usage,
+    item.pain_points,
+    item.integrations,
+    item.risks,
+    item.opportunities,
+    item.confidence
+  ])));
+
+  children.push(docParagraph('4. Mapa de Processos', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Processo', 'Área responsável', 'Sistemas', 'Dores', 'Evidência', 'Confiança'], mapRows(assessment.process_map, (item) => [
+    item.name,
+    item.owner_area,
+    item.systems,
+    item.pain_points,
+    item.evidence,
+    item.confidence
+  ])));
+
+  children.push(docParagraph('5. Gaps Identificados', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Gap', 'Categoria', 'Impacto', 'Classificação', 'Evidência', 'Recomendação', 'Status'], mapRows(assessment.gap_map, (item) => [
+    item.description,
+    item.category,
+    item.impact,
+    item.classification,
+    item.evidence,
+    item.recommendation,
+    item.status
+  ])));
+
+  children.push(docParagraph('6. Radar de Gaps', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docParagraph('Representação inicial em tabela editável. A evolução para gráfico editável no Word será tratada em etapa específica.'));
+  children.push(docTable(['Categoria', 'Score', 'Gaps fonte'], mapRows(assessment.gap_radar, (item) => [
+    item.category,
+    item.score,
+    item.source_gaps
+  ])));
+
+  children.push(docParagraph('7. Fluxos', { heading: HeadingLevel.HEADING_1 }));
+  (assessment.flows || []).forEach((flow) => {
+    children.push(docParagraph(`${safeText(flow.type)} - ${safeText(flow.name)}`, { heading: HeadingLevel.HEADING_2 }));
+    children.push(docParagraph(`Evidência: ${safeText(flow.evidence)} | Confiança: ${safeText(flow.confidence)}`));
+    children.push(docTable(['Ordem', 'Área', 'Atividade', 'Sistema', 'Entrada', 'Saída', 'Responsável', 'Problema'], mapRows(flow.steps, (step) => [
+      step.order,
+      step.area,
+      step.activity,
+      step.system,
+      step.input,
+      step.output,
+      step.responsible,
+      step.issue
+    ])));
+  });
+
+  children.push(docParagraph('8. Riscos', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Risco', 'Probabilidade', 'Impacto', 'Mitigação', 'Evidência', 'Confiança'], mapRows(assessment.risks, (item) => [
+    item.description,
+    item.probability,
+    item.impact,
+    item.mitigation,
+    item.evidence,
+    item.confidence
+  ])));
+
+  children.push(docParagraph('9. Recomendações', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Prioridade', 'Título', 'Descrição', 'Esforço', 'Gaps relacionados', 'Status'], mapRows(assessment.recommendations, (item) => [
+    item.priority,
+    item.title,
+    item.description,
+    item.effort,
+    item.related_gaps,
+    item.status
+  ])));
+
+  children.push(docParagraph('10. Roadmap', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Fase', 'Título', 'Descrição', 'Dependências', 'Recomendações relacionadas'], mapRows(assessment.roadmap, (item) => [
+    item.phase,
+    item.title,
+    item.description,
+    item.dependencies,
+    item.related_recommendations
+  ])));
+
+  children.push(docParagraph('11. Perguntas Abertas', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Pergunta', 'Tópico', 'Responsável', 'Status'], mapRows(assessment.open_questions, (item) => [
+    item.question,
+    item.topic,
+    item.responsible,
+    item.status
+  ])));
+
+  children.push(docParagraph('12. Controle de Revisão', { heading: HeadingLevel.HEADING_1 }));
+  children.push(docTable(['Seção', 'Status'], Object.entries(assessment.review_status || {}).map(([key, value]) => [key, value])));
+
+  return children;
+}
+
+async function buildAssessmentDocx(assessment) {
+  const document = new Document({
+    creator: 'Assessment Report Builder',
+    title: `Assessment ${safeText(assessment.client && assessment.client.name)}`,
+    description: 'Relatório editável gerado a partir de assessment.json validado.',
+    sections: [
+      {
+        properties: {},
+        children: buildDocxChildren(assessment)
+      }
+    ]
+  });
+
+  return Packer.toBuffer(document);
 }
 
 function normalizeSource(source, fallbackType) {
@@ -477,6 +693,50 @@ app.post('/api/assessment/validate', (req, res) => {
 
   const validation = validateAssessment(assessment);
   return res.status(200).json({ ok: true, ...validation });
+});
+
+app.post('/api/assessment/export-docx', async (req, res) => {
+  const assessment = req.body?.assessment;
+
+  if (!assessment || typeof assessment !== 'object' || Array.isArray(assessment)) {
+    return res.status(400).json({
+      ok: false,
+      error: 'ASSESSMENT_REQUIRED',
+      message: 'Envie um objeto assessment para exportar DOCX.'
+    });
+  }
+
+  const validation = validateAssessment(assessment);
+  if (!validation.valid) {
+    return res.status(400).json({
+      ok: false,
+      error: 'ASSESSMENT_SCHEMA_INVALID',
+      message: 'O assessment precisa estar válido no schema antes de gerar DOCX.',
+      validation
+    });
+  }
+
+  try {
+    const buffer = await buildAssessmentDocx(assessment);
+    const clientName = normalizeOptionalString(assessment.client?.name) || 'assessment';
+    const safeFilename = clientName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'assessment';
+
+    res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.set('Content-Disposition', `attachment; filename="${safeFilename}-assessment.docx"`);
+    res.set('Content-Length', String(buffer.length));
+    return res.status(200).send(buffer);
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: 'DOCX_EXPORT_FAILED',
+      message: error.message || 'Falha ao gerar DOCX editável.'
+    });
+  }
 });
 
 app.use((req, res) => {
