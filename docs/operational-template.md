@@ -1,160 +1,155 @@
 # Template Operacional DOCX
 
-## Arquivo
+## Arquivo ativo
 
 ```text
 backend/templates/assessment-operational-template.docx
 ```
 
-## Origem
+## Decisao atual
 
-Criado como copia controlada de:
+O template operacional ativo e um esqueleto limpo, gerado por script, sem texto especifico de cliente exemplo.
 
-```text
-backend/templates/assessment-xmobots-template.docx
-```
+O objetivo deste corte e garantir conteudo correto antes de retomar fidelidade visual fina ao template oficial.
 
-O template original permanece preservado como referencia.
+## Geracao reprodutivel
 
-## Objetivo deste corte
-
-Preparar uma primeira versao operacional do template Word com placeholders, sem alterar o runtime de exportacao ainda.
-
-Este corte valida apenas:
-
-- o arquivo abre no Microsoft Word;
-- o padrao visual base e preservado;
-- os desenhos/objetos Word continuam presentes;
-- existem placeholders minimos para futura renderizacao com engine de template.
-
-## Inventario validado
-
-| Item | Resultado |
-|---|---:|
-| Arquivo abre no Microsoft Word | sim |
-| Tabelas nativas | 3 |
-| Desenhos/objetos Word | 94 |
-| Secoes Word | 8 |
-| Midias | 1 |
-| Placeholder de capa | sim |
-| Placeholder de resumo executivo | sim |
-| Loop de etapas de fluxo | sim |
-| Loop de gaps | sim |
-
-## Placeholders inseridos
-
-### Capa e textos globais
+O arquivo binario e gerado por:
 
 ```text
-{cover.client_name}
+backend/scripts/create-clean-operational-template.js
 ```
 
-Uso previsto:
+Comando:
 
-- substituir o cliente do exemplo;
-- manter o layout visual do template;
-- preencher titulo e mencoes principais ao cliente.
+```bash
+node backend/scripts/create-clean-operational-template.js
+```
 
-### Tabela 1 - Leitura executiva
+## Motivo da troca
+
+A versao anterior do template operacional preservava textos do exemplo original. Em teste real com `Quality Machines`, o DOCX final ainda continha termos herdados como:
+
+- `XMOBOTS`
+- `Altium`
+- `SKACONECTOR`
+- `EBOM`
+- `MBOM`
+- `MCAD`
+- `ECAD`
+
+Isso contaminava o relatorio de um cliente novo com narrativa de outro assessment.
+
+## Contrato do template limpo
+
+O DOCX ativo contem apenas:
+
+- capa generica;
+- secoes genericas;
+- tabelas editaveis;
+- placeholders `docxtemplater`;
+- loops para listas do `assessment.json`.
+
+Nao deve conter:
+
+- nome de cliente exemplo;
+- software fixo;
+- tecnologia fixa;
+- fluxo fixo;
+- recomendacao fixa;
+- conteudo narrativo herdado do documento de referencia.
+
+## Placeholders principais
+
+Campos planos:
 
 ```text
-Leitura executiva
-{executive.current_state}
-{#executive.main_pains}
-- {.}
-{/executive.main_pains}
-Maturidade: {executive.overall_maturity}
+{cover_client_name}
+{cover_business_area}
+{cover_assessment_type}
+{cover_generated_at}
+{executive_current_state}
+{executive_overall_maturity}
+{executive_evidence}
 ```
 
-Fonte prevista:
+Loops:
 
 ```text
-executive_summary.current_state
-executive_summary.main_pains
-executive_summary.overall_maturity
+{#executive_main_pains}{.}{/executive_main_pains}
+{#systems}...{/systems}
+{#processes}...{/processes}
+{#gaps}...{/gaps}
+{#risks}...{/risks}
+{#flow_steps}...{/flow_steps}
+{#recommendations}...{/recommendations}
+{#roadmap}...{/roadmap}
+{#open_questions}...{/open_questions}
 ```
 
-### Tabela 2 - Etapas de fluxo
+## Guardrail anti-contaminacao
 
-Linha repetivel:
+O exportador executa uma validacao depois de renderizar o DOCX.
+
+Se o documento final contiver termo legado do template e esse termo nao existir no `assessment.json`, a exportacao falha.
+
+Termos vigiados neste corte:
 
 ```text
-{#flow_steps}{order}
-{input}
-{activity}
-{responsible}
-{output} / {system}{/flow_steps}
+XMOBOTS
+Altium
+SKACONECTOR
+EBOM
+MBOM
+MCAD
+ECAD
 ```
 
-Fonte prevista:
+Esse bloqueio evita entregar um relatorio visualmente correto, mas semanticamente contaminado.
 
-```text
-report_model.flow_steps[]
-```
+## Validacao local registrada
 
-Observacao:
+Template limpo:
 
-O primeiro corte usa uma lista achatada de etapas para reduzir complexidade. A origem pode vir de multiplos fluxos em `assessment.flows[]`, mas o `report_model` deve preparar a lista final.
+- nao contem `XMOBOTS`;
+- nao contem `Altium`;
+- nao contem `SKACONECTOR`;
+- nao contem `EBOM`;
+- nao contem `MBOM`;
+- nao contem `MCAD`;
+- nao contem `ECAD`.
 
-### Tabela 3 - Gargalos
+Renderizacao local direta:
 
-Linha repetivel:
+- DOCX gerado abriu no Microsoft Word;
+- dados de cliente, resumo, sistema, gap e fluxo foram renderizados;
+- nenhum placeholder operacional ficou pendente;
+- nenhum termo legado apareceu.
 
-```text
-{#gaps}{description}
-{impact}
-{recommendation}{/gaps}
-```
+Endpoint local `/api/assessment/export-docx`:
 
-Fonte prevista:
+- retornou `200`;
+- `Content-Type` correto de DOCX;
+- DOCX abriu no Microsoft Word;
+- conteudo renderizado: cliente, resumo executivo e gap;
+- 11 tabelas editaveis;
+- nenhum termo legado;
+- nenhum placeholder operacional.
 
-```text
-report_model.gaps[]
-```
+Validacao negativa:
 
-## Decisoes tecnicas
+- um DOCX contaminado antigo foi bloqueado por `DOCX_EXPORT_TEMPLATE_LEAK`.
 
-- O template usa sintaxe de placeholder compativel com `docxtemplater`.
-- Os desenhos Word existentes foram preservados.
-- Shapes e conectores dinamicos nao foram tratados neste corte.
-- O runtime ainda nao usa este arquivo.
-- Nenhum XML manual foi injetado no exportador.
+## Limitacoes assumidas
 
-## Limitacoes conhecidas
+Este corte reduz fidelidade visual ao template oficial para eliminar contaminacao de conteudo.
 
-- O template operacional ainda precisa ser testado com a engine final.
-- Loops dentro de tabelas precisam ser confirmados com `docxtemplater`.
-- A secao visual de fluxos ainda e referencia visual, nao geracao dinamica.
-- O sumario ainda nao e atualizado automaticamente.
+A proxima etapa visual deve reconstruir:
 
-## Validacao com engine DOCX
+- capa mais fiel;
+- estilos do documento oficial;
+- tabelas mais proximas;
+- radar/grafico de gaps;
+- fluxos visuais editaveis.
 
-Primeira validacao local com `docxtemplater`:
-
-| Item | Resultado |
-|---|---:|
-| DOCX renderizado abre no Microsoft Word | sim |
-| Tabelas nativas preservadas | 3 |
-| Desenhos/objetos Word preservados | 94 |
-| Secoes Word preservadas | 8 |
-| Midias preservadas | 1 |
-| Placeholder de cliente substituido | sim |
-| Resumo executivo substituido | sim |
-| Loop de dores principais renderizado | sim |
-| Loop de etapas de fluxo renderizado | sim |
-| Loop de gaps renderizado | sim |
-| Placeholders pendentes no XML principal | nao |
-
-Observacao:
-
-- Placeholders com ponto, como `{cover.client_name}`, foram substituidos por aliases planos, como `{cover_client_name}`, porque os campos simples renderizaram com mais previsibilidade nesse template Word.
-- O runtime de exportacao ainda nao usa este renderizador.
-
-## Proximo passo
-
-Integrar o renderizador ao endpoint de exportacao somente depois de revisar o corte e manter estes criterios:
-
-- o DOCX renderizado abrir no Microsoft Word;
-- placeholders serem substituidos corretamente;
-- loops repetirem linhas de tabela;
-- os 94 desenhos continuarem preservados.
+Essa etapa visual so deve avancar mantendo o guardrail anti-contaminacao ativo.
