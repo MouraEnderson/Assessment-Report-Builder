@@ -231,6 +231,12 @@ Saida esperada:
 backend/templates/assessment-operational-template.docx
 ```
 
+Status:
+
+```text
+Primeiro corte criado. Ver docs/operational-template.md.
+```
+
 ### Fase 3 - Criar report_model
 
 Objetivo:
