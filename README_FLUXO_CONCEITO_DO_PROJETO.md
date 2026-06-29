@@ -191,16 +191,23 @@ Gerar documento DOCX final editavel usando o template oficial.
 Status:
 
 ```text
-Nao implementado.
+Implementado parcialmente.
 ```
 
-Requisitos:
+Pronto neste corte:
 
+- Endpoint `POST /api/assessment/export-docx`.
+- Exportacao DOCX a partir de `assessment.json` validado.
 - Texto nativo editavel.
-- Tabelas nativas editaveis.
-- Fluxos reconstruidos como elementos editaveis.
-- Matriz/grafico de gaps editavel quando tecnicamente viavel.
-- Nenhuma secao critica omitida silenciosamente.
+- Tabelas nativas editaveis para softwares, processos, gaps, radar, fluxos, riscos, recomendacoes, roadmap, perguntas abertas e revisao.
+- Botao `Exportar DOCX` no widget.
+
+Ainda falta:
+
+- Aplicar o template visual XMOBOTS com maior fidelidade.
+- Reconstruir fluxos como objetos/desenhos Word editaveis.
+- Evoluir matriz/grafico GAP para grafico/objeto editavel no Word quando tecnicamente viavel.
+- Validar o DOCX final no Word com edicao manual de tabelas, textos e fluxos.
 
 Observacao sobre o template XMOBOTS:
 

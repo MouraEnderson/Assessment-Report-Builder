@@ -130,6 +130,33 @@
     xhr.send(payload ? JSON.stringify(payload) : null);
   }
 
+  function requestBlob(method, url, payload, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.responseType = 'blob';
+    xhr.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/json');
+    if (payload) xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function () {
+      var reader;
+      if (xhr.readyState !== 4) return;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        callback(null, xhr.response, xhr);
+        return;
+      }
+      reader = new FileReader();
+      reader.onload = function () {
+        var body = null;
+        try { body = JSON.parse(reader.result || '{}'); } catch (error) {}
+        callback(new Error((body && (body.message || body.error)) || ('Falha HTTP ' + xhr.status)), body);
+      };
+      reader.readAsText(xhr.response);
+    };
+    xhr.onerror = function () {
+      callback(new Error('Falha de rede.'), null);
+    };
+    xhr.send(payload ? JSON.stringify(payload) : null);
+  }
+
   function getWidgetWAFData() {
     try {
       if (global.widget && global.widget.WAFData && global.widget.WAFData.authenticatedRequest) {
@@ -230,7 +257,7 @@
             '<details class="assessment-technical"><summary>JSON técnico e validação</summary>' +
             '<p class="assessment-muted">Use esta área para revisão técnica, validação de schema e exportação do assessment.json.</p>' +
             '<label class="assessment-field"><span>assessment.json</span><textarea id="assessment-json" class="assessment-textarea assessment-json" placeholder="O JSON gerado aparecerá aqui." spellcheck="false"></textarea></label>' +
-            '<div class="assessment-actions"><button id="save-json" class="assessment-button secondary" type="button">Salvar alterações</button><button id="validate-assessment" class="assessment-button secondary" type="button">Validar schema</button><button id="export-json" class="assessment-button primary" type="button">Exportar JSON</button></div>' +
+            '<div class="assessment-actions"><button id="save-json" class="assessment-button secondary" type="button">Salvar alterações</button><button id="validate-assessment" class="assessment-button secondary" type="button">Validar schema</button><button id="export-json" class="assessment-button secondary" type="button">Exportar JSON</button><button id="export-docx" class="assessment-button primary" type="button">Exportar DOCX</button></div>' +
             '</details>' +
             '<p id="validation-status" class="assessment-message">Nenhum JSON carregado.</p>' +
           '</section>' +
@@ -263,6 +290,7 @@
     els.saveJson = byId('save-json');
     els.validate = byId('validate-assessment');
     els.exportJson = byId('export-json');
+    els.exportDocx = byId('export-docx');
   }
 
   function collectState() {
@@ -548,6 +576,41 @@
     }
   }
 
+  function exportDocx() {
+    var assessment;
+    var filename;
+    try {
+      assessment = parseAssessment();
+    } catch (error) {
+      setStatus(els.validation, 'Não foi possível exportar DOCX: ' + error.message, 'error');
+      return;
+    }
+
+    setStatus(els.validation, 'Gerando DOCX editável...', 'working');
+    requestBlob('POST', '/api/assessment/export-docx', { assessment: assessment }, function (error, blob, xhr) {
+      var disposition;
+      var match;
+      var a;
+      var url;
+      if (error) {
+        setStatus(els.validation, 'Falha ao gerar DOCX: ' + error.message, 'error');
+        return;
+      }
+      disposition = xhr.getResponseHeader('Content-Disposition') || '';
+      match = disposition.match(/filename="([^"]+)"/);
+      filename = match ? match[1] : 'assessment.docx';
+      url = global.URL.createObjectURL(blob);
+      a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.parentNode.removeChild(a);
+      global.URL.revokeObjectURL(url);
+      setStatus(els.validation, 'DOCX editável exportado.', 'success');
+    });
+  }
+
   function resetSession() {
     if (!global.confirm('Limpar a sessão local deste widget?')) return;
     try { global.localStorage.removeItem(STORAGE_KEY); } catch (error) {}
@@ -584,6 +647,7 @@
     els.saveJson.onclick = saveJsonEdits;
     els.validate.onclick = validateJson;
     els.exportJson.onclick = exportJson;
+    els.exportDocx.onclick = exportDocx;
   }
 
   function showFatal(message) {
