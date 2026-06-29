@@ -276,6 +276,7 @@ function mapRows(items, mapper) {
 
 function xmlEscape(value) {
   return safeText(value)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -398,14 +399,6 @@ async function buildTemplateBasedAssessmentDocx(assessment) {
   let documentXml = await documentFile.async('string');
   documentXml = replaceWordText(documentXml, 'XMOBOTS - Arquitetura de Processos e Sistemas', `${safeText(client.name || 'Cliente')} - Arquitetura de Processos e Sistemas`);
   documentXml = replaceWordText(documentXml, 'XMOBOTS', safeText(client.name || 'Cliente'));
-
-  const appendixXml = buildTemplateAppendixXml(assessment);
-  const sectPrMatch = documentXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>\s*<\/w:body>/);
-  if (sectPrMatch) {
-    documentXml = documentXml.replace(sectPrMatch[0], `${appendixXml}${sectPrMatch[0]}`);
-  } else {
-    documentXml = documentXml.replace('</w:body>', `${appendixXml}</w:body>`);
-  }
 
   zip.file('word/document.xml', documentXml);
   return zip.generateAsync({
