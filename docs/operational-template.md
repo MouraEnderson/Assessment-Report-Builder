@@ -127,9 +127,32 @@ report_model.gaps[]
 - A secao visual de fluxos ainda e referencia visual, nao geracao dinamica.
 - O sumario ainda nao e atualizado automaticamente.
 
+## Validacao com engine DOCX
+
+Primeira validacao local com `docxtemplater`:
+
+| Item | Resultado |
+|---|---:|
+| DOCX renderizado abre no Microsoft Word | sim |
+| Tabelas nativas preservadas | 3 |
+| Desenhos/objetos Word preservados | 94 |
+| Secoes Word preservadas | 8 |
+| Midias preservadas | 1 |
+| Placeholder de cliente substituido | sim |
+| Resumo executivo substituido | sim |
+| Loop de dores principais renderizado | sim |
+| Loop de etapas de fluxo renderizado | sim |
+| Loop de gaps renderizado | sim |
+| Placeholders pendentes no XML principal | nao |
+
+Observacao:
+
+- Placeholders com ponto, como `{cover.client_name}`, foram substituidos por aliases planos, como `{cover_client_name}`, porque os campos simples renderizaram com mais previsibilidade nesse template Word.
+- O runtime de exportacao ainda nao usa este renderizador.
+
 ## Proximo passo
 
-Criar o `report_model` e validar renderizacao local com engine DOCX, sem publicar em producao ate:
+Integrar o renderizador ao endpoint de exportacao somente depois de revisar o corte e manter estes criterios:
 
 - o DOCX renderizado abrir no Microsoft Word;
 - placeholders serem substituidos corretamente;
