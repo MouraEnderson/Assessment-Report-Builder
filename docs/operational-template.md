@@ -47,8 +47,8 @@ O DOCX ativo contem apenas:
 - capa generica com faixa executiva;
 - secoes genericas numeradas;
 - tabelas editaveis;
-- matriz/radar de gaps editavel em tabela;
-- visao horizontal de fluxo editavel, limitada a 6 etapas por fluxo;
+- matriz/radar de gaps editavel em tabela como apoio;
+- visao horizontal de fluxo editavel em tabela como apoio, limitada a 6 etapas por fluxo;
 - tabela detalhada de etapas de fluxo;
 - placeholders `docxtemplater`;
 - loops para listas do `assessment.json`.
@@ -152,11 +152,15 @@ Validacao negativa:
 
 Este corte ainda nao tenta reproduzir todos os objetos visuais do template oficial antigo.
 
-Ele melhora a estrutura visual limpa com capa, secoes, caixas, tabelas, radar editavel e fluxo horizontal editavel, mantendo a prioridade de conteudo correto e sem contaminacao.
+Ele melhora a estrutura visual limpa com capa, secoes, caixas e tabelas de apoio, mantendo a prioridade de conteudo correto e sem contaminacao.
+
+As tabelas atuais de radar e fluxo nao sao consideradas o visual final aceito para a entrega. Elas ficam como detalhamento editavel e apoio de auditoria.
 
 A proxima etapa visual deve reconstruir:
 
-- grafico Office nativo, caso a editabilidade do grafico seja requisito fechado;
+- grafico Radar Office nativo, editavel pelo Word;
+- fluxo como objeto nativo editavel do Word, preferencialmente SmartArt/processo;
+- alternativa tecnica de fluxo em shapes/conectores Word editaveis somente se SmartArt OOXML nao for viavel no Render;
 - refinamento de capa e espacamentos com base em comparacao visual.
 
 Essa etapa visual so deve avancar mantendo o guardrail anti-contaminacao ativo.

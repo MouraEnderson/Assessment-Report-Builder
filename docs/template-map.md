@@ -305,6 +305,8 @@ Nao implementar no primeiro corte operacional:
 - manipular `document.xml` por concatenacao;
 - converter fluxos para imagem.
 
+Essa restricao vale apenas para o primeiro corte operacional ja entregue. Para a proxima fase visual, chart Office nativo e objeto Word editavel passam a ser requisito do fluxo final.
+
 ## Primeiro corte recomendado
 
 Implementar apenas:
@@ -314,7 +316,7 @@ Implementar apenas:
 - tabelas nativas repetiveis;
 - gargalos;
 - roadmap;
-- fluxos em tabela editavel;
+- fluxos em tabela editavel como apoio;
 - preservacao dos desenhos existentes como referencia visual.
 
 Validacao obrigatoria:
@@ -325,11 +327,12 @@ Validacao obrigatoria:
 - testar download no Render;
 - abrir DOCX baixado do Render no Microsoft Word.
 
-## Decisao pendente
+## Decisao da proxima fase visual
 
-Antes da implementacao da Fase 2, confirmar se o template operacional sera:
+Para atender ao requisito de fidelidade e editabilidade no Word, a proxima fase deve gerar:
 
-1. criado manualmente no Word com placeholders; ou
-2. gerado programaticamente a partir do arquivo atual.
+1. grafico Radar Office nativo preenchido por `gap_radar`;
+2. fluxo como SmartArt/processo nativo do Word quando tecnicamente viavel;
+3. fluxo como shapes/conectores Word editaveis se SmartArt OOXML nao for viavel no Render.
 
-Recomendacao: criar manualmente no Word uma copia operacional com placeholders, porque reduz risco de corromper shapes/desenhos existentes.
+Tabela nao substitui o fluxo visual final. Imagem estatica tambem nao atende ao requisito sem aprovacao explicita.

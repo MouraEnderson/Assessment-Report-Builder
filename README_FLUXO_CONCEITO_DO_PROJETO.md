@@ -353,6 +353,9 @@ PDF = saida de leitura futura
 - O link oficial nao muda.
 - O fluxo atual de bookmark é manual.
 - Nao ha fallback silencioso para dados fake.
+- Fluxos e radar de gaps devem ser objetos nativos editaveis do Word quando usados como entrega visual final.
+- Tabelas de fluxo/radar ficam apenas como detalhamento de dados e fallback de auditoria, nao como visual final aceito.
+- PNG, SVG ou imagem estatica nao atendem ao requisito final de editabilidade sem decisao explicita.
 
 ## O Que Falta
 
@@ -362,8 +365,8 @@ PDF = saida de leitura futura
    - destacar resumo executivo, softwares, gaps, fluxos, recomendacoes e roadmap.
 
 2. Melhorar DOCX final editavel:
-   - evoluir fluxo visual editavel;
-   - evoluir radar de gaps;
+   - evoluir fluxo visual para objeto nativo editavel do Word;
+   - evoluir radar de gaps para grafico Office nativo editavel;
    - refinar capa e estilos;
    - aproximar do template oficial sem copiar conteudo fixo;
    - preservar guardrail anti-contaminacao.
@@ -372,30 +375,34 @@ PDF = saida de leitura futura
    - abrir DOCX;
    - confirmar edicao de texto;
    - confirmar edicao de tabelas;
-   - confirmar edicao de fluxos/matriz;
-   - confirmar que nao virou imagem.
+   - confirmar edicao do grafico radar via ferramenta nativa do Word;
+   - confirmar edicao do fluxo como objeto nativo do Word;
+   - confirmar que fluxo/radar nao viraram imagem.
 
 4. Evoluir bookmark automatico:
    - somente depois de provar API oficial com WAFData.
 
 ## Proximos Passos Planejados
 
-### PR seguinte - Fluxo visual e radar de gaps
+### PR seguinte - Objetos nativos Word para fluxo e radar
 
 Objetivo:
 
 ```text
-Melhorar a apresentacao do fluxo e do radar sem quebrar editabilidade nem reintroduzir conteudo fixo.
+Gerar fluxo e radar como objetos nativos editaveis do Word sem quebrar o template limpo nem reintroduzir conteudo fixo.
 ```
 
 Escopo previsto:
 
-- melhorar `backend/report-model.js` para preparar dados visuais de fluxo;
-- melhorar `backend/scripts/create-clean-operational-template.js`;
-- gerar uma area visual de fluxo em tabela horizontal/editavel;
-- melhorar matriz/radar de gaps com leitura executiva;
+- manter `backend/report-model.js` como fonte estruturada de dados;
+- adicionar geracao OOXML pos-render em `backend/docx-template-renderer.js`;
+- gerar grafico Radar Office nativo a partir de `gap_radar`;
+- gerar fluxo como objeto Word editavel, preferencialmente SmartArt/processo; se SmartArt OOXML nao for viavel no Render, usar shapes/conectores Word editaveis;
+- manter tabelas apenas como detalhe/auditoria, nao como visual principal;
 - regenerar `backend/templates/assessment-operational-template.docx`;
 - validar abertura no Word;
+- validar edicao do grafico radar no Word;
+- validar edicao do fluxo no Word;
 - validar ausencia de termos herdados;
 - validar exportacao no Render apos merge.
 
@@ -403,7 +410,6 @@ Fora do escopo deste PR:
 
 - bookmark automatico;
 - troca de provedor IA;
-- grafico Office nativo complexo;
 - reuso direto dos shapes do DOCX XMOBOTS;
 - mudanca do link oficial.
 
