@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const Ajv2020 = require('ajv/dist/2020');
 const mammoth = require('mammoth');
+const JSZip = require('jszip');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const {
   AlignmentType,
@@ -38,6 +39,7 @@ const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 60000);
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
+const officialTemplatePath = path.resolve(__dirname, 'templates', 'assessment-xmobots-template.docx');
 const assessmentSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -270,6 +272,147 @@ function docTable(headers, rows, options = {}) {
 
 function mapRows(items, mapper) {
   return Array.isArray(items) && items.length ? items.map(mapper) : [];
+}
+
+function xmlEscape(value) {
+  return safeText(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function wordText(text, options = {}) {
+  const color = options.color || DOCX_COLORS.navy;
+  const size = options.size || 20;
+  const bold = options.bold ? '<w:b/>' : '';
+  const italic = options.italic ? '<w:i/>' : '';
+  return `<w:r><w:rPr>${bold}${italic}<w:color w:val="${color}"/><w:sz w:val="${size}"/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+}
+
+function wordParagraph(text, options = {}) {
+  const style = options.style ? `<w:pStyle w:val="${options.style}"/>` : '';
+  const align = options.align ? `<w:jc w:val="${options.align}"/>` : '';
+  const spacing = '<w:spacing w:after="160"/>';
+  return `<w:p><w:pPr>${style}${align}${spacing}</w:pPr>${wordText(text, options)}</w:p>`;
+}
+
+function wordPageBreak() {
+  return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+}
+
+function wordCell(text, options = {}) {
+  const fill = options.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${options.fill}"/>` : '';
+  const color = options.color || DOCX_COLORS.navy;
+  const bold = options.bold ? '<w:b/>' : '';
+  return `<w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/>${fill}<w:tcMar><w:top w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:r><w:rPr>${bold}<w:color w:val="${color}"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r></w:p></w:tc>`;
+}
+
+function wordTable(headers, rows) {
+  const safeRows = Array.isArray(rows) && rows.length ? rows : [['Sem dados estruturados.']];
+  const headerXml = `<w:tr>${headers.map((header) => wordCell(header, { bold: true, fill: DOCX_COLORS.blue, color: DOCX_COLORS.white })).join('')}</w:tr>`;
+  const rowsXml = safeRows.map((row, index) => `<w:tr>${row.map((value) => wordCell(value, { fill: index % 2 === 0 ? DOCX_COLORS.white : DOCX_COLORS.grayFill })).join('')}</w:tr>`).join('');
+  return `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:left w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:bottom w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:right w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:insideH w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:insideV w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/></w:tblBorders></w:tblPr>${headerXml}${rowsXml}</w:tbl>`;
+}
+
+function buildTemplateAppendixXml(assessment) {
+  const summary = assessment.executive_summary || {};
+  const client = assessment.client || {};
+  const children = [
+    wordPageBreak(),
+    wordParagraph('Assessment estruturado gerado pela IA', { style: 'Ttulo1', bold: true, color: DOCX_COLORS.blueDark, size: 28 }),
+    wordParagraph(`Cliente: ${safeText(client.name)} | Area: ${safeText(client.business_area)}`, { bold: true, color: DOCX_COLORS.blueDark }),
+    wordParagraph('Resumo executivo', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordParagraph(summary.current_state || 'Sem resumo executivo estruturado.'),
+    wordParagraph('Principais dores', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Dor identificada'], (summary.main_pains || []).map((pain) => [pain])),
+    wordParagraph('Mapa de softwares', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Area', 'Software', 'Uso', 'Dores', 'Oportunidades'], mapRows(assessment.software_map, (item) => [
+      item.area,
+      item.software,
+      item.usage,
+      item.pain_points,
+      item.opportunities
+    ])),
+    wordParagraph('Gaps e recomendacoes', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Gap', 'Categoria', 'Impacto', 'Recomendacao', 'Status'], mapRows(assessment.gap_map, (item) => [
+      item.description,
+      item.category,
+      item.impact,
+      item.recommendation,
+      item.status
+    ])),
+    wordParagraph('Radar de gaps', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Categoria', 'Score', 'Gaps fonte'], mapRows(assessment.gap_radar, (item) => [
+      item.category,
+      item.score,
+      item.source_gaps
+    ])),
+    wordParagraph('Fluxos', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 })
+  ];
+
+  (assessment.flows || []).forEach((flow) => {
+    children.push(wordParagraph(`${safeText(flow.type)} - ${safeText(flow.name)}`, { bold: true, color: DOCX_COLORS.blueDark }));
+    children.push(wordTable(['Ordem', 'Area', 'Atividade', 'Sistema', 'Entrada', 'Saida', 'Responsavel', 'Problema'], mapRows(flow.steps, (step) => [
+      step.order,
+      step.area,
+      step.activity,
+      step.system,
+      step.input,
+      step.output,
+      step.responsible,
+      step.issue
+    ])));
+  });
+
+  children.push(wordParagraph('Roadmap', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }));
+  children.push(wordTable(['Fase', 'Titulo', 'Descricao', 'Dependencias'], mapRows(assessment.roadmap, (item) => [
+    item.phase,
+    item.title,
+    item.description,
+    item.dependencies
+  ])));
+
+  return children.join('');
+}
+
+function replaceWordText(documentXml, fromText, toText) {
+  if (!fromText || !toText || fromText === toText) return documentXml;
+  return documentXml.split(xmlEscape(fromText)).join(xmlEscape(toText));
+}
+
+async function buildTemplateBasedAssessmentDocx(assessment) {
+  if (!fs.existsSync(officialTemplatePath)) {
+    return null;
+  }
+
+  const templateBuffer = fs.readFileSync(officialTemplatePath);
+  const zip = await JSZip.loadAsync(templateBuffer);
+  const documentFile = zip.file('word/document.xml');
+  if (!documentFile) {
+    throw new Error('Template DOCX oficial sem word/document.xml.');
+  }
+
+  const client = assessment.client || {};
+  let documentXml = await documentFile.async('string');
+  documentXml = replaceWordText(documentXml, 'XMOBOTS - Arquitetura de Processos e Sistemas', `${safeText(client.name || 'Cliente')} - Arquitetura de Processos e Sistemas`);
+  documentXml = replaceWordText(documentXml, 'XMOBOTS', safeText(client.name || 'Cliente'));
+
+  const appendixXml = buildTemplateAppendixXml(assessment);
+  const sectPrMatch = documentXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>\s*<\/w:body>/);
+  if (sectPrMatch) {
+    documentXml = documentXml.replace(sectPrMatch[0], `${appendixXml}${sectPrMatch[0]}`);
+  } else {
+    documentXml = documentXml.replace('</w:body>', `${appendixXml}</w:body>`);
+  }
+
+  zip.file('word/document.xml', documentXml);
+  return zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 }
+  });
 }
 
 function sectionTitle(number, title, subtitle) {
@@ -619,6 +762,11 @@ function buildDocxChildren(assessment) {
 }
 
 async function buildAssessmentDocx(assessment) {
+  const templateBuffer = await buildTemplateBasedAssessmentDocx(assessment);
+  if (templateBuffer) {
+    return templateBuffer;
+  }
+
   const document = new Document({
     creator: 'Assessment Report Builder',
     title: `Assessment ${safeText(assessment.client && assessment.client.name)}`,

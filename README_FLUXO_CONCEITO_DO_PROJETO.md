@@ -198,21 +198,19 @@ Pronto neste corte:
 
 - Endpoint `POST /api/assessment/export-docx`.
 - Exportacao DOCX a partir de `assessment.json` validado.
+- Uso do DOCX oficial XMOBOTS como arquivo base do exportador.
+- Preservacao estrutural do template oficial: secoes, midia e desenhos/objetos Word.
 - Texto nativo editavel.
 - Tabelas nativas editaveis para softwares, processos, gaps, radar, fluxos, riscos, recomendacoes, roadmap, perguntas abertas e revisao.
 - Botao `Exportar DOCX` no widget.
-- Capa executiva com dados do cliente.
-- Cabecalho e rodape com numeracao de pagina.
-- Quebras de pagina por bloco principal.
-- Titulos de secao com faixa visual editavel.
-- Radar de gaps em matriz editavel com escala 0-5.
-- Fluxos AS-IS/TO-BE em blocos visuais editaveis e tabela detalhada completa.
+- Substituicao basica de cliente/titulo no XML do Word.
+- Apendice estruturado com resumo executivo, softwares, gaps, radar, fluxos e roadmap gerados pela IA.
 
 Ainda falta:
 
-- Replicar o template visual XMOBOTS com maior fidelidade.
-- Reconstruir fluxos como objetos/desenhos Word editaveis.
-- Evoluir matriz/grafico GAP para grafico/objeto editavel no Word quando tecnicamente viavel.
+- Substituir o conteudo de cada secao do template por conteudo gerado, preservando os objetos/desenhos.
+- Mapear secoes 1 a 6 do template para campos do `assessment.json`.
+- Atualizar textos dentro dos desenhos/objetos Word sem quebrar o pacote OOXML.
 - Validar o DOCX final no Word com edicao manual de tabelas, textos e fluxos.
 
 Observacao sobre o template XMOBOTS:
