@@ -44,9 +44,10 @@ Isso contaminava o relatorio de um cliente novo com narrativa de outro assessmen
 
 O DOCX ativo contem apenas:
 
-- capa generica;
-- secoes genericas;
+- capa generica com faixa executiva;
+- secoes genericas numeradas;
 - tabelas editaveis;
+- matriz/radar de gaps editavel em tabela;
 - placeholders `docxtemplater`;
 - loops para listas do `assessment.json`.
 
@@ -80,6 +81,7 @@ Loops:
 {#systems}...{/systems}
 {#processes}...{/processes}
 {#gaps}...{/gaps}
+{#gap_radar}...{/gap_radar}
 {#risks}...{/risks}
 {#flow_steps}...{/flow_steps}
 {#recommendations}...{/recommendations}
@@ -132,7 +134,8 @@ Endpoint local `/api/assessment/export-docx`:
 - `Content-Type` correto de DOCX;
 - DOCX abriu no Microsoft Word;
 - conteudo renderizado: cliente, resumo executivo e gap;
-- 11 tabelas editaveis;
+- 19 tabelas editaveis no Microsoft Word;
+- radar de gaps editavel renderizado;
 - nenhum termo legado;
 - nenhum placeholder operacional.
 
@@ -142,14 +145,14 @@ Validacao negativa:
 
 ## Limitacoes assumidas
 
-Este corte reduz fidelidade visual ao template oficial para eliminar contaminacao de conteudo.
+Este corte ainda nao tenta reproduzir todos os objetos visuais do template oficial antigo.
+
+Ele melhora a estrutura visual limpa com capa, secoes, caixas, tabelas e radar editavel, mantendo a prioridade de conteudo correto e sem contaminacao.
 
 A proxima etapa visual deve reconstruir:
 
-- capa mais fiel;
-- estilos do documento oficial;
-- tabelas mais proximas;
-- radar/grafico de gaps;
-- fluxos visuais editaveis.
+- fluxo visual em formato mais proximo do exemplo oficial;
+- grafico Office nativo, caso a editabilidade do grafico seja requisito fechado;
+- refinamento de capa e espacamentos com base em comparacao visual.
 
 Essa etapa visual so deve avancar mantendo o guardrail anti-contaminacao ativo.

@@ -4,9 +4,11 @@ const {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
   HeadingLevel,
   Packer,
   PageBreak,
+  PageNumber,
   Paragraph,
   ShadingType,
   Table,
@@ -21,16 +23,19 @@ const {
 const outPath = path.resolve(__dirname, '..', 'templates', 'assessment-operational-template.docx');
 
 const COLORS = {
-  navy: '0F172A',
+  ink: '111827',
+  navy: '172554',
   blue: '2555D9',
   blueDark: '1E3A8A',
-  blueLight: 'EAF0FF',
-  grayText: '475569',
-  grayFill: 'F8FAFC',
-  grayBorder: 'CBD5E1',
+  blueSoft: 'EAF0FF',
+  slate: '475569',
+  line: 'CBD5E1',
+  fill: 'F8FAFC',
   white: 'FFFFFF',
-  greenLight: 'E8F7EE',
-  amberLight: 'FFF7E6'
+  green: 'DCFCE7',
+  amber: 'FEF3C7',
+  red: 'FEE2E2',
+  cyan: 'E0F2FE'
 };
 
 function run(text, options = {}) {
@@ -38,9 +43,10 @@ function run(text, options = {}) {
     text,
     bold: Boolean(options.bold),
     italics: Boolean(options.italics),
-    color: options.color || COLORS.navy,
+    color: options.color || COLORS.ink,
     size: options.size || 20,
-    allCaps: Boolean(options.allCaps)
+    allCaps: Boolean(options.allCaps),
+    break: options.break
   });
 }
 
@@ -50,10 +56,23 @@ function paragraph(text, options = {}) {
     alignment: options.alignment,
     spacing: {
       before: options.before || 0,
-      after: options.after == null ? 140 : options.after,
+      after: options.after == null ? 120 : options.after,
       line: options.line || 276
     },
     children: [run(text, options)]
+  });
+}
+
+function richParagraph(children, options = {}) {
+  return new Paragraph({
+    heading: options.heading,
+    alignment: options.alignment,
+    spacing: {
+      before: options.before || 0,
+      after: options.after == null ? 120 : options.after,
+      line: options.line || 276
+    },
+    children
   });
 }
 
@@ -62,6 +81,23 @@ function pageBreak() {
 }
 
 function cell(text, options = {}) {
+  const children = Array.isArray(text)
+    ? text
+    : [
+        new Paragraph({
+          alignment: options.alignment,
+          spacing: { after: 0 },
+          children: [
+            run(String(text), {
+              bold: Boolean(options.bold),
+              color: options.color || COLORS.ink,
+              size: options.size || 18,
+              allCaps: Boolean(options.allCaps)
+            })
+          ]
+        })
+      ];
+
   return new TableCell({
     columnSpan: options.columnSpan,
     verticalAlign: VerticalAlign.CENTER,
@@ -72,188 +108,272 @@ function cell(text, options = {}) {
           color: 'auto'
         }
       : undefined,
-    margins: { top: 100, bottom: 100, left: 120, right: 120 },
-    borders: {
-      top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.grayBorder },
-      bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.grayBorder },
-      left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.grayBorder },
-      right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.grayBorder }
+    margins: {
+      top: options.tight ? 70 : 100,
+      bottom: options.tight ? 70 : 100,
+      left: 110,
+      right: 110
     },
-    children: [
-      new Paragraph({
-        alignment: options.alignment,
-        spacing: { after: 0 },
-        children: [
-          run(text, {
-            bold: Boolean(options.bold),
-            color: options.color || COLORS.navy,
-            size: options.size || 18,
-            allCaps: Boolean(options.allCaps)
-          })
-        ]
-      })
-    ]
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: options.border || COLORS.line },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: options.border || COLORS.line },
+      left: { style: BorderStyle.SINGLE, size: 1, color: options.border || COLORS.line },
+      right: { style: BorderStyle.SINGLE, size: 1, color: options.border || COLORS.line }
+    },
+    children
   });
 }
 
-function table(headers, loopName, fields) {
+function blockTable(rows, options = {}) {
   return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: options.width || 100, type: WidthType.PERCENTAGE },
+    alignment: options.alignment,
     layout: TableLayoutType.FIXED,
-    rows: [
-      new TableRow({
-        tableHeader: true,
-        children: headers.map((header) => cell(header, {
-          bold: true,
-          fill: COLORS.blue,
-          color: COLORS.white,
-          allCaps: true,
-          size: 16,
-          alignment: AlignmentType.CENTER
-        }))
-      }),
-      new TableRow({
-        children: fields.map((field, index) => {
-          const prefix = index === 0 ? `{#${loopName}}` : '';
-          const suffix = index === fields.length - 1 ? `{/${loopName}}` : '';
-          return cell(`${prefix}{${field}}${suffix}`, { size: 16 });
-        })
-      })
-    ]
+    rows
   });
+}
+
+function dataTable(headers, loopName, fields, options = {}) {
+  return blockTable([
+    new TableRow({
+      tableHeader: true,
+      children: headers.map((header) => cell(header, {
+        bold: true,
+        fill: options.headerFill || COLORS.blueDark,
+        color: COLORS.white,
+        allCaps: true,
+        size: options.headerSize || 15,
+        alignment: AlignmentType.CENTER
+      }))
+    }),
+    new TableRow({
+      children: fields.map((field, index) => {
+        const prefix = index === 0 ? `{#${loopName}}` : '';
+        const suffix = index === fields.length - 1 ? `{/${loopName}}` : '';
+        return cell(`${prefix}{${field}}${suffix}`, {
+          size: options.bodySize || 16,
+          fill: index % 2 === 0 ? COLORS.white : COLORS.fill
+        });
+      })
+    })
+  ]);
 }
 
 function section(number, title, subtitle) {
   return [
-    paragraph(`${number} ${title}`, {
-      heading: HeadingLevel.HEADING_1,
-      bold: true,
-      color: COLORS.blueDark,
-      size: 28,
-      before: 260,
-      after: 100
-    }),
-    paragraph(subtitle, {
-      color: COLORS.grayText,
-      size: 18,
-      after: 180
-    })
+    blockTable([
+      new TableRow({
+        children: [
+          cell(number, {
+            bold: true,
+            fill: COLORS.blue,
+            color: COLORS.white,
+            size: 20,
+            alignment: AlignmentType.CENTER
+          }),
+          cell(title, {
+            bold: true,
+            fill: COLORS.blueSoft,
+            color: COLORS.blueDark,
+            size: 22
+          })
+        ]
+      }),
+      new TableRow({
+        children: [
+          cell(subtitle, {
+            columnSpan: 2,
+            fill: COLORS.fill,
+            color: COLORS.slate,
+            size: 17
+          })
+        ]
+      })
+    ]),
+    paragraph('', { after: 80 })
   ];
 }
 
-function callout(title, body, fill = COLORS.blueLight) {
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
+function callout(title, body, fill = COLORS.blueSoft) {
+  return blockTable([
+    new TableRow({
+      children: [
+        cell(title, {
+          bold: true,
+          fill,
+          color: COLORS.blueDark,
+          size: 18
+        }),
+        cell(body, {
+          fill,
+          size: 18
+        })
+      ]
+    })
+  ]);
+}
+
+function cover() {
+  return [
+    blockTable([
       new TableRow({
         children: [
-          cell(title, { bold: true, fill, color: COLORS.blueDark, size: 18 }),
-          cell(body, { fill, size: 18 })
+          cell('ASSESSMENT DE ENGENHARIA', {
+            bold: true,
+            fill: COLORS.blueDark,
+            color: COLORS.white,
+            size: 34,
+            alignment: AlignmentType.CENTER
+          })
+        ]
+      }),
+      new TableRow({
+        children: [
+          cell('{cover_client_name}', {
+            bold: true,
+            fill: COLORS.blueSoft,
+            color: COLORS.navy,
+            size: 30,
+            alignment: AlignmentType.CENTER
+          })
+        ]
+      }),
+      new TableRow({
+        children: [
+          cell('Relatorio editavel gerado a partir do assessment.json validado', {
+            fill: COLORS.white,
+            color: COLORS.slate,
+            size: 18,
+            alignment: AlignmentType.CENTER
+          })
         ]
       })
-    ]
-  });
+    ]),
+    paragraph('', { after: 240 }),
+    blockTable([
+      new TableRow({ children: [cell('Cliente', { bold: true, fill: COLORS.fill }), cell('{cover_client_name}')] }),
+      new TableRow({ children: [cell('Area principal', { bold: true, fill: COLORS.fill }), cell('{cover_business_area}')] }),
+      new TableRow({ children: [cell('Tipo de assessment', { bold: true, fill: COLORS.fill }), cell('{cover_assessment_type}')] }),
+      new TableRow({ children: [cell('Data de geracao', { bold: true, fill: COLORS.fill }), cell('{cover_generated_at}')] })
+    ], { width: 88, alignment: AlignmentType.CENTER }),
+    paragraph('', { after: 240 }),
+    callout('Premissa de uso', 'O documento e editavel e deve ser revisado antes de envio oficial.', COLORS.cyan),
+    pageBreak()
+  ];
+}
+
+function summarySection() {
+  return [
+    ...section('01', 'Introducao e leitura executiva', 'Contexto consolidado somente a partir do documento importado.'),
+    callout('Objetivo do documento', '{executive_current_state}', COLORS.blueSoft),
+    paragraph('Principais pontos identificados', {
+      heading: HeadingLevel.HEADING_2,
+      bold: true,
+      size: 22
+    }),
+    richParagraph([
+      run('{#executive_main_pains}', { size: 18 }),
+      run('- {.}', { size: 18 }),
+      run('{/executive_main_pains}', { size: 18 })
+    ]),
+    callout('Maturidade geral', '{executive_overall_maturity}', COLORS.green),
+    callout('Evidencia utilizada', '{executive_evidence}', COLORS.amber),
+    pageBreak()
+  ];
+}
+
+function systemsSection() {
+  return [
+    ...section('02', 'Sistemas e processos', 'Mapa editavel dos sistemas, processos, dores e evidencias extraidas.'),
+    paragraph('Sistemas identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    dataTable(
+      ['Area', 'Sistema', 'Uso', 'Dores', 'Oportunidades', 'Evidencia', 'Confianca'],
+      'systems',
+      ['area', 'software', 'usage', 'pain_points_text', 'opportunities_text', 'evidence', 'confidence']
+    ),
+    paragraph('Processos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    dataTable(
+      ['Processo', 'Area', 'Sistemas', 'Dores', 'Evidencia', 'Confianca'],
+      'processes',
+      ['name', 'owner_area', 'systems_text', 'pain_points_text', 'evidence', 'confidence']
+    ),
+    pageBreak()
+  ];
+}
+
+function gapSection() {
+  return [
+    ...section('03', 'Gaps, riscos e maturidade', 'Classificacao de gaps e matriz de maturidade editavel no Word.'),
+    paragraph('Mapa de gaps', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    dataTable(
+      ['Gap', 'Categoria', 'Impacto', 'Recomendacao', 'Evidencia', 'Status'],
+      'gaps',
+      ['description', 'category', 'impact', 'recommendation', 'evidence', 'status']
+    ),
+    paragraph('Radar de gaps editavel', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    dataTable(
+      ['Categoria', '0', '1', '2', '3', '4', '5', 'Score', 'Gaps fonte'],
+      'gap_radar',
+      ['category', 'level_0', 'level_1', 'level_2', 'level_3', 'level_4', 'level_5', 'score', 'source_gaps_text'],
+      { headerFill: COLORS.blue }
+    ),
+    paragraph('Riscos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    dataTable(
+      ['Risco', 'Probabilidade', 'Impacto', 'Mitigacao', 'Evidencia'],
+      'risks',
+      ['description', 'probability', 'impact', 'mitigation', 'evidence'],
+      { headerFill: COLORS.navy }
+    ),
+    pageBreak()
+  ];
+}
+
+function flowSection() {
+  return [
+    ...section('04', 'Fluxos AS-IS e TO-BE', 'Fluxos reconstruidos como matriz editavel para revisao e ajuste.'),
+    dataTable(
+      ['Fluxo', 'Tipo', 'Ordem', 'Entrada', 'Atividade', 'Responsavel', 'Saida', 'Sistema', 'Area', 'Ponto de atencao'],
+      'flow_steps',
+      ['flow_name', 'flow_type', 'order', 'input', 'activity', 'responsible', 'output', 'system', 'area', 'issue'],
+      { headerFill: COLORS.blueDark, bodySize: 15 }
+    ),
+    pageBreak()
+  ];
+}
+
+function roadmapSection() {
+  return [
+    ...section('05', 'Recomendacoes e roadmap', 'Plano de acao editavel baseado nos gaps, riscos e evidencias.'),
+    paragraph('Recomendacoes', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    dataTable(
+      ['Titulo', 'Descricao', 'Prioridade', 'Esforco', 'Status'],
+      'recommendations',
+      ['title', 'description', 'priority', 'effort', 'status']
+    ),
+    paragraph('Roadmap', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    dataTable(
+      ['Fase', 'Titulo', 'Descricao', 'Dependencias'],
+      'roadmap',
+      ['phase', 'title', 'description', 'dependencies_text'],
+      { headerFill: COLORS.navy }
+    ),
+    paragraph('Perguntas abertas', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    dataTable(
+      ['Pergunta', 'Topico', 'Responsavel', 'Status'],
+      'open_questions',
+      ['question', 'topic', 'responsible', 'status'],
+      { headerFill: COLORS.blue }
+    )
+  ];
 }
 
 const children = [
-  paragraph('Assessment de Engenharia', {
-    alignment: AlignmentType.CENTER,
-    bold: true,
-    color: COLORS.blueDark,
-    size: 40,
-    before: 500,
-    after: 80
-  }),
-  paragraph('{cover_client_name}', {
-    alignment: AlignmentType.CENTER,
-    bold: true,
-    color: COLORS.navy,
-    size: 32,
-    after: 180
-  }),
-  paragraph('Relatorio editavel gerado a partir do assessment.json validado.', {
-    alignment: AlignmentType.CENTER,
-    color: COLORS.grayText,
-    size: 20,
-    after: 300
-  }),
-  new Table({
-    width: { size: 90, type: WidthType.PERCENTAGE },
-    alignment: AlignmentType.CENTER,
-    rows: [
-      new TableRow({ children: [cell('Cliente', { bold: true, fill: COLORS.grayFill }), cell('{cover_client_name}')]}),
-      new TableRow({ children: [cell('Area principal', { bold: true, fill: COLORS.grayFill }), cell('{cover_business_area}')]}),
-      new TableRow({ children: [cell('Tipo de assessment', { bold: true, fill: COLORS.grayFill }), cell('{cover_assessment_type}')]}),
-      new TableRow({ children: [cell('Data de geracao', { bold: true, fill: COLORS.grayFill }), cell('{cover_generated_at}')]}),
-    ]
-  }),
-  pageBreak(),
-
-  ...section('1.', 'Introducao', 'Contexto executivo estruturado a partir do documento importado.'),
-  callout('Objetivo do documento', '{executive_current_state}'),
-  paragraph('Principais pontos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
-  paragraph('{#executive_main_pains}- {.}{/executive_main_pains}', { size: 18 }),
-  callout('Maturidade geral', '{executive_overall_maturity}', COLORS.greenLight),
-  callout('Evidencia utilizada', '{executive_evidence}', COLORS.amberLight),
-  pageBreak(),
-
-  ...section('2.', 'Sistemas e processos', 'Mapeamento editavel dos sistemas, processos e evidencias extraidas.'),
-  paragraph('Sistemas identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
-  table(
-    ['Area', 'Sistema', 'Uso', 'Dores', 'Oportunidades', 'Evidencia', 'Confianca'],
-    'systems',
-    ['area', 'software', 'usage', 'pain_points_text', 'opportunities_text', 'evidence', 'confidence']
-  ),
-  paragraph('Processos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
-  table(
-    ['Processo', 'Area', 'Sistemas', 'Dores', 'Evidencia', 'Confianca'],
-    'processes',
-    ['name', 'owner_area', 'systems_text', 'pain_points_text', 'evidence', 'confidence']
-  ),
-  pageBreak(),
-
-  ...section('3.', 'Gaps e riscos', 'Gaps, riscos e prioridades classificados para revisao humana.'),
-  paragraph('Mapa de gaps', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
-  table(
-    ['Gap', 'Categoria', 'Impacto', 'Recomendacao', 'Evidencia', 'Status'],
-    'gaps',
-    ['description', 'category', 'impact', 'recommendation', 'evidence', 'status']
-  ),
-  paragraph('Riscos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
-  table(
-    ['Risco', 'Probabilidade', 'Impacto', 'Mitigacao', 'Evidencia'],
-    'risks',
-    ['description', 'probability', 'impact', 'mitigation', 'evidence']
-  ),
-  pageBreak(),
-
-  ...section('4.', 'Fluxos', 'Fluxos reconstruidos como tabela editavel para revisao e ajuste no Word.'),
-  table(
-    ['Fluxo', 'Tipo', 'Ordem', 'Entrada', 'Atividade', 'Responsavel', 'Saida', 'Sistema', 'Area', 'Ponto de atencao'],
-    'flow_steps',
-    ['flow_name', 'flow_type', 'order', 'input', 'activity', 'responsible', 'output', 'system', 'area', 'issue']
-  ),
-  pageBreak(),
-
-  ...section('5.', 'Recomendacoes e roadmap', 'Plano de acao editavel baseado nos gaps e riscos evidenciados.'),
-  paragraph('Recomendacoes', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
-  table(
-    ['Titulo', 'Descricao', 'Prioridade', 'Esforco', 'Status'],
-    'recommendations',
-    ['title', 'description', 'priority', 'effort', 'status']
-  ),
-  paragraph('Roadmap', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
-  table(
-    ['Fase', 'Titulo', 'Descricao', 'Dependencias'],
-    'roadmap',
-    ['phase', 'title', 'description', 'dependencies_text']
-  ),
-  paragraph('Perguntas abertas', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
-  table(
-    ['Pergunta', 'Topico', 'Responsavel', 'Status'],
-    'open_questions',
-    ['question', 'topic', 'responsible', 'status']
-  )
+  ...cover(),
+  ...summarySection(),
+  ...systemsSection(),
+  ...gapSection(),
+  ...flowSection(),
+  ...roadmapSection()
 ];
 
 const document = new Document({
@@ -265,7 +385,7 @@ const document = new Document({
       {
         id: 'Normal',
         name: 'Normal',
-        run: { size: 20, color: COLORS.navy },
+        run: { size: 20, color: COLORS.ink },
         paragraph: { spacing: { after: 120, line: 276 } }
       },
       {
@@ -283,7 +403,7 @@ const document = new Document({
         basedOn: 'Normal',
         next: 'Normal',
         quickFormat: true,
-        run: { size: 22, bold: true, color: COLORS.navy },
+        run: { size: 22, bold: true, color: COLORS.ink },
         paragraph: { spacing: { before: 180, after: 80 } }
       }
     ]
@@ -293,12 +413,25 @@ const document = new Document({
       properties: {
         page: {
           margin: {
-            top: 900,
-            right: 720,
-            bottom: 900,
-            left: 720
+            top: 760,
+            right: 620,
+            bottom: 760,
+            left: 620
           }
         }
+      },
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              children: [
+                run('Assessment Report Builder | Pagina ', { size: 16, color: COLORS.slate }),
+                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: COLORS.slate })
+              ]
+            })
+          ]
+        })
       },
       children
     }
