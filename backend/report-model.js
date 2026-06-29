@@ -42,6 +42,36 @@ function flattenFlowSteps(flows) {
   }];
 }
 
+function buildRadarRows(gapRadar) {
+  const rows = compactArray(gapRadar).map((item) => {
+    const score = Math.max(0, Math.min(5, Math.round(Number(item.score || 0))));
+
+    return {
+      category: safeText(item.category),
+      score: safeText(score),
+      level_0: score >= 0 ? 'X' : '',
+      level_1: score >= 1 ? 'X' : '',
+      level_2: score >= 2 ? 'X' : '',
+      level_3: score >= 3 ? 'X' : '',
+      level_4: score >= 4 ? 'X' : '',
+      level_5: score >= 5 ? 'X' : '',
+      source_gaps_text: safeText(item.source_gaps)
+    };
+  });
+
+  return rows.length ? rows : [{
+    category: 'Maturidade nao evidenciada',
+    score: '-',
+    level_0: '',
+    level_1: '',
+    level_2: '',
+    level_3: '',
+    level_4: '',
+    level_5: '',
+    source_gaps_text: 'Nao evidenciado no rascunho importado.'
+  }];
+}
+
 function buildReportModel(assessment) {
   const source = assessment && typeof assessment === 'object' ? assessment : {};
   const client = source.client || {};
@@ -102,6 +132,7 @@ function buildReportModel(assessment) {
       evidence: safeText(item.evidence),
       status: safeText(item.status)
     })),
+    gap_radar: buildRadarRows(source.gap_radar),
     flow_steps: flattenFlowSteps(source.flows),
     risks: compactArray(source.risks).map((item) => ({
       description: safeText(item.description),
