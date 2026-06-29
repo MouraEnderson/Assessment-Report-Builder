@@ -79,6 +79,31 @@
     return origin + ': ' + name + reference;
   }
 
+  function listItems(items) {
+    if (!Array.isArray(items) || !items.length) return '<p class="assessment-empty">Sem itens estruturados.</p>';
+    return '<ul class="assessment-list">' + items.map(function (item) {
+      return '<li>' + escapeHtml(item) + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  function table(headers, rows) {
+    if (!Array.isArray(rows) || !rows.length) return '<p class="assessment-empty">Sem dados estruturados.</p>';
+    return '<div class="assessment-table-wrap"><table class="assessment-table"><thead><tr>' +
+      headers.map(function (header) { return '<th>' + escapeHtml(header.label) + '</th>'; }).join('') +
+      '</tr></thead><tbody>' +
+      rows.map(function (row) {
+        return '<tr>' + headers.map(function (header) {
+          var value = typeof header.value === 'function' ? header.value(row) : row[header.key];
+          return '<td>' + escapeHtml(value == null || value === '' ? '-' : value) + '</td>';
+        }).join('') + '</tr>';
+      }).join('') +
+      '</tbody></table></div>';
+  }
+
+  function countLabel(label, value) {
+    return '<span class="assessment-count"><strong>' + escapeHtml(value) + '</strong>' + escapeHtml(label) + '</span>';
+  }
+
   function request(method, url, payload, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
@@ -200,10 +225,13 @@
             '<p id="operation-status" class="assessment-message">Importe um documento .docx para iniciar.</p>' +
           '</section>' +
           '<section class="assessment-panel">' +
-            '<div class="assessment-section-heading"><div><span class="assessment-step">Etapa 3</span><h2>Revisão do assessment.json</h2></div><span class="assessment-pill">Editável</span></div>' +
-            '<p class="assessment-muted">O conteúdo abaixo pode ser alterado manualmente. Depois de editar, salve e valide contra o schema oficial.</p>' +
+            '<div class="assessment-section-heading"><div><span class="assessment-step">Etapa 3</span><h2>Assessment estruturado</h2></div><span class="assessment-pill">Revisável</span></div>' +
+            '<div id="assessment-preview" class="assessment-preview"><p class="assessment-empty">Nenhum assessment gerado.</p></div>' +
+            '<details class="assessment-technical"><summary>JSON técnico e validação</summary>' +
+            '<p class="assessment-muted">Use esta área para revisão técnica, validação de schema e exportação do assessment.json.</p>' +
             '<label class="assessment-field"><span>assessment.json</span><textarea id="assessment-json" class="assessment-textarea assessment-json" placeholder="O JSON gerado aparecerá aqui." spellcheck="false"></textarea></label>' +
             '<div class="assessment-actions"><button id="save-json" class="assessment-button secondary" type="button">Salvar alterações</button><button id="validate-assessment" class="assessment-button secondary" type="button">Validar schema</button><button id="export-json" class="assessment-button primary" type="button">Exportar JSON</button></div>' +
+            '</details>' +
             '<p id="validation-status" class="assessment-message">Nenhum JSON carregado.</p>' +
           '</section>' +
         '</div>' +
@@ -226,6 +254,7 @@
     els.bookmarkDocxFile = byId('bookmark-docx-file');
     els.importLocalDocx = byId('import-local-docx');
     els.importBookmarkDocx = byId('import-bookmark-docx');
+    els.preview = byId('assessment-preview');
     els.json = byId('assessment-json');
     els.op = byId('operation-status');
     els.validation = byId('validation-status');
@@ -262,6 +291,7 @@
     els.type.value = state.assessmentType || 'plm_assessment';
     els.mode.value = state.generationMode || 'conservador';
     els.json.value = state.assessment ? JSON.stringify(state.assessment, null, 2) : '';
+    renderAssessmentPreview(state.assessment);
     updateCounter();
     els.saved.textContent = state.updatedAt ? 'Estado recuperado: ' + new Date(state.updatedAt).toLocaleString('pt-BR') : 'Nova sessão. O progresso será salvo automaticamente.';
   }
@@ -285,6 +315,100 @@
   function parseAssessment() {
     if (!trim(els.json.value)) throw new Error('O editor está vazio.');
     return JSON.parse(els.json.value);
+  }
+
+  function renderAssessmentPreview(assessment) {
+    var summary;
+    var html;
+
+    if (!els.preview) return;
+    if (!assessment) {
+      els.preview.innerHTML = '<p class="assessment-empty">Nenhum assessment gerado.</p>';
+      return;
+    }
+
+    summary = assessment.executive_summary || {};
+    html = '' +
+      '<div class="assessment-preview-header">' +
+        countLabel('Softwares', (assessment.software_map || []).length) +
+        countLabel('Gaps', (assessment.gap_map || []).length) +
+        countLabel('Fluxos', (assessment.flows || []).length) +
+        countLabel('Recomendações', (assessment.recommendations || []).length) +
+        countLabel('Roadmap', (assessment.roadmap || []).length) +
+      '</div>' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Resumo executivo</h3>' +
+        '<p>' + escapeHtml(summary.current_state || 'Sem resumo estruturado.') + '</p>' +
+        '<h4>Principais dores</h4>' +
+        listItems(summary.main_pains) +
+        '<p class="assessment-evidence"><strong>Evidência:</strong> ' + escapeHtml(summary.evidence || 'Não informada.') + '</p>' +
+        '<p class="assessment-evidence"><strong>Confiança:</strong> ' + escapeHtml(summary.confidence || 'Não avaliada') + '</p>' +
+      '</section>' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Mapa de softwares</h3>' +
+        table([
+          { label: 'Área', key: 'area' },
+          { label: 'Software', key: 'software' },
+          { label: 'Uso', key: 'usage' },
+          { label: 'Dores', value: function (row) { return (row.pain_points || []).join('; '); } },
+          { label: 'Confiança', key: 'confidence' }
+        ], assessment.software_map || []) +
+      '</section>' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Gaps e recomendações</h3>' +
+        table([
+          { label: 'Gap', key: 'description' },
+          { label: 'Categoria', key: 'category' },
+          { label: 'Impacto', key: 'impact' },
+          { label: 'Classificação', key: 'classification' },
+          { label: 'Recomendação', key: 'recommendation' }
+        ], assessment.gap_map || []) +
+      '</section>' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Radar de gaps</h3>' +
+        table([
+          { label: 'Categoria', key: 'category' },
+          { label: 'Score', key: 'score' },
+          { label: 'Gaps fonte', value: function (row) { return (row.source_gaps || []).join(', '); } }
+        ], assessment.gap_radar || []) +
+      '</section>' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Fluxos</h3>' +
+        table([
+          { label: 'Tipo', key: 'type' },
+          { label: 'Nome', key: 'name' },
+          { label: 'Etapas', value: function (row) { return (row.steps || []).length; } },
+          { label: 'Problemas', value: function (row) { return (row.issues || []).join('; '); } },
+          { label: 'Confiança', key: 'confidence' }
+        ], assessment.flows || []) +
+      '</section>' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Recomendações e roadmap</h3>' +
+        table([
+          { label: 'Prioridade', key: 'priority' },
+          { label: 'Título', key: 'title' },
+          { label: 'Descrição', key: 'description' },
+          { label: 'Esforço', key: 'effort' }
+        ], assessment.recommendations || []) +
+        '<h4>Roadmap</h4>' +
+        table([
+          { label: 'Fase', key: 'phase' },
+          { label: 'Título', key: 'title' },
+          { label: 'Descrição', key: 'description' },
+          { label: 'Dependências', value: function (row) { return (row.dependencies || []).join('; '); } }
+        ], assessment.roadmap || []) +
+      '</section>' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Perguntas abertas</h3>' +
+        table([
+          { label: 'Pergunta', key: 'question' },
+          { label: 'Tópico', key: 'topic' },
+          { label: 'Responsável', key: 'responsible' },
+          { label: 'Status', key: 'status' }
+        ], assessment.open_questions || []) +
+      '</section>';
+
+    els.preview.innerHTML = html;
   }
 
   function readFileBase64(file, callback) {
@@ -369,6 +493,7 @@
       s.validation = body.validation || null;
       saveState(s);
       els.json.value = JSON.stringify(body.assessment, null, 2);
+      renderAssessmentPreview(body.assessment);
       setStatus(els.op, 'assessment.json gerado. Revise antes de usar em relatório.', 'success');
       setStatus(els.validation, 'Schema válido.', 'success');
     });
@@ -381,6 +506,7 @@
       next.assessment = assessment;
       next.validation = null;
       saveState(next);
+      renderAssessmentPreview(assessment);
       setStatus(els.op, 'Alterações salvas localmente.', 'success');
       setStatus(els.validation, 'JSON alterado. Valide novamente.', 'warning');
     } catch (error) {

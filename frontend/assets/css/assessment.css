@@ -311,6 +311,122 @@ body {
   background: #eef4ff;
 }
 
+.assessment-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.assessment-preview-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assessment-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: #4b586d;
+  font-size: 12px;
+}
+
+.assessment-count strong {
+  color: #172033;
+  font-size: 18px;
+}
+
+.assessment-preview-section {
+  padding-top: 12px;
+  border-top: 1px solid #e3e8f1;
+}
+
+.assessment-preview-section h3,
+.assessment-preview-section h4 {
+  margin: 0 0 8px;
+}
+
+.assessment-preview-section h3 {
+  font-size: 16px;
+}
+
+.assessment-preview-section h4 {
+  color: #354156;
+  font-size: 13px;
+}
+
+.assessment-preview-section p {
+  margin: 0 0 8px;
+  color: #354156;
+  line-height: 1.48;
+}
+
+.assessment-list {
+  margin: 0 0 8px 18px;
+  padding: 0;
+  color: #354156;
+  line-height: 1.45;
+}
+
+.assessment-empty {
+  margin: 0;
+  color: #637084;
+}
+
+.assessment-evidence {
+  font-size: 12px;
+}
+
+.assessment-table-wrap {
+  max-width: 100%;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+}
+
+.assessment-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.assessment-table th,
+.assessment-table td {
+  padding: 8px 9px;
+  border-bottom: 1px solid #e6ebf3;
+  text-align: left;
+  vertical-align: top;
+}
+
+.assessment-table th {
+  color: #354156;
+  background: #f4f7fb;
+  font-weight: 800;
+}
+
+.assessment-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.assessment-technical {
+  margin-top: 14px;
+  border-top: 1px solid #e3e8f1;
+  padding-top: 12px;
+}
+
+.assessment-technical summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #263247;
+}
+
 .assessment-principles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
