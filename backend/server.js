@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const Ajv2020 = require('ajv/dist/2020');
+const mammoth = require('mammoth');
 
 const app = express();
 const port = Number(process.env.PORT || 10000);
@@ -28,8 +29,8 @@ const allowedSourceTypes = new Set([
 app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false, frameguard: false }));
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use(express.json({ limit: '12mb' }));
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
 function applyNoCacheHeaders(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
@@ -95,6 +96,18 @@ function normalizeOptionalString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function countWords(text) {
+  return String(text || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function normalizeExtractedText(text) {
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function normalizeSource(source, fallbackType) {
   const safeSource = source && typeof source === 'object' ? source : {};
   const requestedType = typeof safeSource.type === 'string' ? safeSource.type : fallbackType;
@@ -112,7 +125,7 @@ function createAssessmentDraft(input) {
   const transcriptText = input.transcript_text.trim();
   const now = new Date().toISOString();
   const client = input.client && typeof input.client === 'object' ? input.client : {};
-  const wordCount = transcriptText.split(/\s+/).filter(Boolean).length;
+  const wordCount = countWords(transcriptText);
 
   return {
     metadata: {
@@ -190,6 +203,89 @@ app.get('/version', (req, res) => {
 
 app.get('/api/assessment/schema', (req, res) => {
   res.status(200).json({ ok: true, schema: assessmentSchema });
+});
+
+app.post('/api/assessment/import-docx', async (req, res) => {
+  const input = req.body || {};
+  const filename = normalizeOptionalString(input.filename);
+  const source = input.source && typeof input.source === 'object' ? input.source : {};
+  const sourceType = allowedSourceTypes.has(source.type) ? source.type : 'local_upload';
+  const contentBase64 = typeof input.content_base64 === 'string' ? input.content_base64 : '';
+
+  if (!filename || !filename.toLowerCase().endsWith('.docx')) {
+    return res.status(400).json({
+      ok: false,
+      error: 'DOCX_FILE_REQUIRED',
+      message: 'Importe um arquivo .docx válido.'
+    });
+  }
+
+  if (!contentBase64) {
+    return res.status(400).json({
+      ok: false,
+      error: 'DOCX_CONTENT_REQUIRED',
+      message: 'Conteúdo do arquivo .docx não recebido.'
+    });
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(contentBase64, 'base64');
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      error: 'DOCX_BASE64_INVALID',
+      message: 'Conteúdo base64 do arquivo .docx é inválido.'
+    });
+  }
+
+  if (!buffer.length || buffer.length > 8 * 1024 * 1024) {
+    return res.status(400).json({
+      ok: false,
+      error: 'DOCX_SIZE_INVALID',
+      message: 'O arquivo .docx precisa ter até 8 MB.'
+    });
+  }
+
+  try {
+    const extracted = await mammoth.extractRawText({ buffer });
+    const text = normalizeExtractedText(extracted.value);
+    const wordCount = countWords(text);
+
+    if (text.length < 20) {
+      return res.status(422).json({
+        ok: false,
+        error: 'DOCX_TEXT_NOT_EXTRACTED',
+        message: 'Não foi possível extrair texto suficiente do arquivo .docx.'
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      filename,
+      source: normalizeSource({
+        type: sourceType,
+        filename,
+        origin_reference: source.origin_reference
+      }, 'local_upload'),
+      text,
+      diagnostics: {
+        character_count: text.length,
+        word_count: wordCount,
+        warning_count: extracted.messages.length,
+        warnings: extracted.messages.map((message) => ({
+          type: message.type,
+          message: message.message
+        }))
+      }
+    });
+  } catch (error) {
+    return res.status(422).json({
+      ok: false,
+      error: 'DOCX_IMPORT_FAILED',
+      message: error.message || 'Falha ao extrair texto do arquivo .docx.'
+    });
+  }
 });
 
 app.post('/api/assessment/generate', (req, res) => {
