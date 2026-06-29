@@ -196,7 +196,7 @@ A sessão 3DEXPERIENCE nunca sai do runtime do widget.
 ## Próximo checkpoint
 
 1. Confirmar deploy do Render.
-2. Testar `GET /version` e confirmar versão `0.4.0`.
+2. Testar `GET /version` e confirmar versão `0.4.3`.
 3. Adicionar o link oficial como **Additional App**, não Web Page Reader.
 4. Confirmar que CSS externo e JS externo carregam.
 5. Confirmar que o widget exibe WAFData disponível.

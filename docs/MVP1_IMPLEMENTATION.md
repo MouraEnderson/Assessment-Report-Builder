@@ -224,7 +224,7 @@ backend/schemas/assessment.schema.json
 O MVP 1 será considerado tecnicamente ativo quando:
 
 1. O Render concluir o build do Dockerfile.
-2. `GET /version` retornar `version: 0.4.0`.
+2. `GET /version` retornar `version: 0.4.3`.
 3. `GET /health` retornar HTTP 200.
 4. `GET /` abrir o widget pelo link oficial limpo.
 5. O link estiver adicionado como Additional App.
