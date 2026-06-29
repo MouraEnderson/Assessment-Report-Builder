@@ -71,6 +71,14 @@
     return normalized ? normalized.split(/\s+/).length : 0;
   }
 
+  function sourceLabel(source) {
+    if (!source || !source.type) return 'Nenhum documento importado.';
+    var origin = source.type === 'bookmark_manual' ? 'Bookmark manual' : 'Arquivo local';
+    var name = source.filename || 'documento .docx';
+    var reference = source.origin_reference ? ' · ' + source.origin_reference : '';
+    return origin + ': ' + name + reference;
+  }
+
   function request(method, url, payload, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
@@ -183,11 +191,13 @@
             '</div>' +
           '</section>' +
           '<section class="assessment-panel">' +
-            '<div class="assessment-section-heading"><div><span class="assessment-step">Etapa 2</span><h2>Transcrição</h2></div><span id="transcript-counter" class="assessment-muted">0 caracteres · 0 palavras</span></div>' +
-            '<div class="assessment-note">Neste MVP, cole o texto da transcrição. Bookmark/documentos serão lidos pelo widget usando a sessão logada do 3DEXPERIENCE, sem CAS e sem enviar credenciais ao Render.</div>' +
-            '<label class="assessment-field"><span>Texto da transcrição</span><textarea id="transcript-text" class="assessment-textarea" placeholder="Cole aqui a transcrição da reunião de assessment..."></textarea></label>' +
-            '<div class="assessment-actions"><button id="generate-assessment" class="assessment-button primary" type="button">Gerar assessment.json</button><button id="reset-session" class="assessment-button danger" type="button">Limpar sessão</button></div>' +
-            '<p id="operation-status" class="assessment-message">Preencha o contexto e cole uma transcrição para iniciar.</p>' +
+            '<div class="assessment-section-heading"><div><span class="assessment-step">Etapa 2</span><h2>Importação do assessment</h2></div><span id="transcript-counter" class="assessment-muted">0 caracteres · 0 palavras</span></div>' +
+            '<div class="assessment-note">Importe um documento .docx local ou um arquivo baixado manualmente da bookmark. O widget registra a origem e envia ao Render somente o conteúdo do documento importado.</div>' +
+            '<p id="source-summary" class="assessment-message">Nenhum documento importado.</p>' +
+            '<input id="local-docx-file" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none" />' +
+            '<input id="bookmark-docx-file" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none" />' +
+            '<div class="assessment-actions"><button id="import-local-docx" class="assessment-button secondary" type="button">Importar arquivo local</button><button id="import-bookmark-docx" class="assessment-button secondary" type="button">Importar bookmark manual</button><button id="generate-assessment" class="assessment-button primary" type="button">Gerar assessment.json</button><button id="reset-session" class="assessment-button danger" type="button">Limpar sessão</button></div>' +
+            '<p id="operation-status" class="assessment-message">Importe um documento .docx para iniciar.</p>' +
           '</section>' +
           '<section class="assessment-panel">' +
             '<div class="assessment-section-heading"><div><span class="assessment-step">Etapa 3</span><h2>Revisão do assessment.json</h2></div><span class="assessment-pill">Editável</span></div>' +
@@ -210,8 +220,12 @@
     els.area = byId('business-area');
     els.type = byId('assessment-type');
     els.mode = byId('generation-mode');
-    els.transcript = byId('transcript-text');
     els.counter = byId('transcript-counter');
+    els.sourceSummary = byId('source-summary');
+    els.localDocxFile = byId('local-docx-file');
+    els.bookmarkDocxFile = byId('bookmark-docx-file');
+    els.importLocalDocx = byId('import-local-docx');
+    els.importBookmarkDocx = byId('import-bookmark-docx');
     els.json = byId('assessment-json');
     els.op = byId('operation-status');
     els.validation = byId('validation-status');
@@ -228,15 +242,18 @@
       businessArea: trim(els.area.value),
       assessmentType: els.type.value,
       generationMode: els.mode.value,
-      transcriptText: els.transcript.value,
+      transcriptText: state.transcriptText || '',
+      transcriptSource: state.transcriptSource || null,
+      transcriptDiagnostics: state.transcriptDiagnostics || null,
       assessment: state.assessment || null,
       validation: state.validation || null
     };
   }
 
   function updateCounter() {
-    var text = els.transcript.value || '';
+    var text = state.transcriptText || '';
     els.counter.textContent = text.length + ' caracteres · ' + wordCount(text) + ' palavras';
+    els.sourceSummary.textContent = sourceLabel(state.transcriptSource);
   }
 
   function renderState() {
@@ -244,7 +261,6 @@
     els.area.value = state.businessArea || '';
     els.type.value = state.assessmentType || 'plm_assessment';
     els.mode.value = state.generationMode || 'conservador';
-    els.transcript.value = state.transcriptText || '';
     els.json.value = state.assessment ? JSON.stringify(state.assessment, null, 2) : '';
     updateCounter();
     els.saved.textContent = state.updatedAt ? 'Estado recuperado: ' + new Date(state.updatedAt).toLocaleString('pt-BR') : 'Nova sessão. O progresso será salvo automaticamente.';
@@ -271,10 +287,69 @@
     return JSON.parse(els.json.value);
   }
 
+  function readFileBase64(file, callback) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var result = String(reader.result || '');
+      callback(null, result.split(',').pop());
+    };
+    reader.onerror = function () {
+      callback(new Error('Falha ao ler o arquivo local.'), null);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function importDocxFile(file, sourceType, originReference) {
+    if (!file) return;
+    if (!/\.docx$/i.test(file.name)) {
+      setStatus(els.op, 'Importe somente arquivo .docx.', 'error');
+      return;
+    }
+    setStatus(els.op, 'Lendo documento .docx...', 'working');
+    readFileBase64(file, function (readError, contentBase64) {
+      if (readError) {
+        setStatus(els.op, readError.message, 'error');
+        return;
+      }
+      request('POST', '/api/assessment/import-docx', {
+        filename: file.name,
+        content_base64: contentBase64,
+        source: {
+          type: sourceType,
+          origin_reference: originReference || null
+        }
+      }, function (error, body) {
+        var next;
+        if (error) {
+          setStatus(els.op, 'Falha na importação: ' + error.message, 'error');
+          return;
+        }
+        next = collectState();
+        next.transcriptText = body.text;
+        next.transcriptSource = body.source;
+        next.transcriptDiagnostics = body.diagnostics || null;
+        next.assessment = null;
+        next.validation = null;
+        saveState(next);
+        renderState();
+        setStatus(els.op, 'Documento importado: ' + body.diagnostics.character_count + ' caracteres · ' + body.diagnostics.word_count + ' palavras.', 'success');
+        setStatus(els.validation, 'Novo documento importado. Gere e valide o assessment.', 'warning');
+      });
+    });
+  }
+
+  function chooseBookmarkDocx() {
+    var reference = global.prompt('Informe a referência da bookmark ou do documento selecionado no 3DEXPERIENCE:');
+    if (reference === null) return;
+    state.pendingBookmarkReference = trim(reference);
+    els.bookmarkDocxFile.value = '';
+    els.bookmarkDocxFile.click();
+  }
+
   function generateAssessment() {
     var s = collectState();
     if (trim(s.transcriptText).length < MIN_TRANSCRIPT_LENGTH) {
-      setStatus(els.op, 'A transcrição precisa ter pelo menos ' + MIN_TRANSCRIPT_LENGTH + ' caracteres.', 'error');
+      setStatus(els.op, 'Importe um documento .docx com pelo menos ' + MIN_TRANSCRIPT_LENGTH + ' caracteres extraídos.', 'error');
       return;
     }
     setStatus(els.op, 'Gerando assessment.json...', 'working');
@@ -283,7 +358,7 @@
       transcript_text: s.transcriptText,
       assessment_type: s.assessmentType,
       generation_mode: s.generationMode,
-      transcript_source: { type: 'manual_text' },
+      transcript_source: s.transcriptSource || { type: 'local_upload' },
       template_source: { type: 'not_selected' }
     }, function (error, body) {
       if (error) {
@@ -357,16 +432,27 @@
   }
 
   function bindEvents() {
-    var ids = ['client-name', 'business-area', 'assessment-type', 'generation-mode', 'transcript-text'];
+    var ids = ['client-name', 'business-area', 'assessment-type', 'generation-mode'];
     var i;
     for (i = 0; i < ids.length; i += 1) {
       var node = byId(ids[i]);
       if (node) {
-        node.oninput = function () { updateCounter(); persist(); };
+        node.oninput = persist;
         node.onchange = persist;
       }
     }
     els.checkHealth.onclick = function () { check3DXSession(); checkBackend(); };
+    els.importLocalDocx.onclick = function () {
+      els.localDocxFile.value = '';
+      els.localDocxFile.click();
+    };
+    els.importBookmarkDocx.onclick = chooseBookmarkDocx;
+    els.localDocxFile.onchange = function () {
+      importDocxFile(els.localDocxFile.files && els.localDocxFile.files[0], 'local_upload', null);
+    };
+    els.bookmarkDocxFile.onchange = function () {
+      importDocxFile(els.bookmarkDocxFile.files && els.bookmarkDocxFile.files[0], 'bookmark_manual', state.pendingBookmarkReference || null);
+    };
     els.generate.onclick = generateAssessment;
     els.reset.onclick = resetSession;
     els.saveJson.onclick = saveJsonEdits;
