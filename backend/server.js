@@ -36,7 +36,7 @@ const widgetBuild = `assessment-${serviceVersion}`;
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
 const configuredGeminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const geminiModel = configuredGeminiModel === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : configuredGeminiModel;
-const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 60000);
+const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 140000);
 const aiGenerationTimeoutMs = Number(process.env.AI_GENERATION_TIMEOUT_MS || 110000);
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
@@ -97,6 +97,8 @@ function healthPayload() {
     widget_entrypoint: 'frontend/widget.html',
     runtime: 'frontend/assets/js/assessment-runtime.js',
     css: 'frontend/assets/css/assessment.css',
+    ai_max_input_characters: maxAiInputCharacters,
+    ai_generation_timeout_ms: aiGenerationTimeoutMs,
     authentication_boundary: '3DEXPERIENCE session stays in frontend WAFData; Render never receives CAS/cookies/tokens',
     environment: process.env.NODE_ENV || 'development',
     schema: 'assessment.schema.json'

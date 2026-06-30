@@ -362,6 +362,8 @@ Status:
 - ainda nao ha persistencia separada de cada etapa intermediaria;
 - ainda nao ha reprocessamento isolado de uma unica secao.
 - chamada unica possui limite operacional `AI_MAX_INPUT_CHARS`;
+- limite provisorio atual: `140000` caracteres para testes com documentos reais maiores;
+- esse limite nao substitui a arquitetura definitiva por chunks;
 - documento acima do limite retorna `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`, sem corte silencioso;
 - proximo passo obrigatorio para documentos grandes e pipeline por chunks com consolidacao.
 

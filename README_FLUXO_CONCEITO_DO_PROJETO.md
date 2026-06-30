@@ -99,13 +99,15 @@ GEMINI_MODEL=gemini-2.5-flash
 Variavel opcional:
 
 ```text
-AI_MAX_INPUT_CHARS=60000
+AI_MAX_INPUT_CHARS=140000
 AI_GENERATION_TIMEOUT_MS=110000
 ```
 
 Premissa operacional atual:
 
 - A geracao IA em chamada unica aceita ate `AI_MAX_INPUT_CHARS`.
+- O limite atual de `140000` caracteres e provisorio para viabilizar testes com documentos reais maiores.
+- Esse limite nao transforma chamada unica em arquitetura definitiva para documentos longos.
 - Documento acima desse limite deve parar com `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`.
 - Nao e permitido cortar silenciosamente o documento para gerar relatorio parcial.
 - Proxima arquitetura necessaria para documentos grandes: pipeline IA por chunks com consolidacao e quality review final.
