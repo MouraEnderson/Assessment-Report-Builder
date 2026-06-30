@@ -109,6 +109,46 @@ function buildNativeFlowPlaceholders(flows) {
   return result;
 }
 
+function truncateText(value, maxLength = 80) {
+  const text = safeText(value, '').replace(/\s+/g, ' ').trim();
+  if (!text) return '-';
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
+}
+
+function buildNativeSoftwarePlaceholders(softwareMap) {
+  const systems = compactArray(softwareMap).slice(0, 8);
+  const result = {};
+
+  for (let index = 0; index < 8; index += 1) {
+    const item = systems[index] || {};
+    result[`software_shape_${index + 1}_title`] = truncateText(item.software || item.area || `Sistema ${index + 1}`, 42);
+    result[`software_shape_${index + 1}_body`] = truncateText([
+      safeText(item.area, ''),
+      safeText(item.usage, ''),
+      safeText(item.pain_points, '')
+    ].filter(Boolean).join(' | '), 95);
+  }
+
+  return result;
+}
+
+function buildNativeProcessPlaceholders(processMap) {
+  const processes = compactArray(processMap).slice(0, 6);
+  const result = {};
+
+  for (let index = 0; index < 6; index += 1) {
+    const item = processes[index] || {};
+    result[`process_shape_${index + 1}_title`] = truncateText(item.name || `Processo ${index + 1}`, 44);
+    result[`process_shape_${index + 1}_body`] = truncateText([
+      safeText(item.owner_area, ''),
+      safeText(item.systems, ''),
+      safeText(item.pain_points, '')
+    ].filter(Boolean).join(' | '), 95);
+  }
+
+  return result;
+}
+
 function radarRiskLevel(score) {
   if (score >= 4) return 'Critico';
   if (score >= 3) return 'Alto';
@@ -174,6 +214,8 @@ function buildReportModel(assessment) {
   const metadata = source.metadata || {};
   const executiveSummary = source.executive_summary || {};
   const nativeFlowPlaceholders = buildNativeFlowPlaceholders(source.flows);
+  const nativeSoftwarePlaceholders = buildNativeSoftwarePlaceholders(source.software_map);
+  const nativeProcessPlaceholders = buildNativeProcessPlaceholders(source.process_map);
 
   const cover = {
     title: 'Assessment de Engenharia',
@@ -204,6 +246,8 @@ function buildReportModel(assessment) {
     executive: {
       ...executive
     },
+    ...nativeSoftwarePlaceholders,
+    ...nativeProcessPlaceholders,
     systems: compactArray(source.software_map).map((item) => ({
       area: safeText(item.area),
       software: safeText(item.software),

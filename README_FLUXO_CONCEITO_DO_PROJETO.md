@@ -341,6 +341,7 @@ PDF = saida de leitura futura
 - DOCX de producao nao contem termos herdados do template quando nao existem no assessment.
 - DOCX local validado com grafico Radar Office nativo reconhecido pelo Word como chart (`InlineChartCount=1`).
 - DOCX local e endpoint local validados com fluxo em shapes/conectores nativos do Word (`Shapes=24`).
+- DOCX local e endpoint local validados com mapa de software e mapa de processos em shapes/conectores nativos do Word (`Shapes=49`, `InlineChartCount=1`).
 
 ## Decisoes Tecnicas
 
@@ -371,8 +372,8 @@ PDF = saida de leitura futura
 2. Melhorar DOCX final editavel:
    - fluxo visual em shapes/conectores nativos do Word implementado no template operacional;
    - radar de gaps em grafico Office nativo editavel implementado no template operacional;
-   - converter mapa de software para visual editavel;
-   - converter processos identificados para fluxo/mapa editavel;
+   - mapa de software em shapes/conectores nativos do Word implementado no template operacional;
+   - processos identificados em shapes/conectores nativos do Word implementados no template operacional;
    - converter mapa de gaps para visual editavel;
    - converter riscos identificados para visual editavel;
    - converter roadmap para linha do tempo/fluxo editavel;
@@ -406,6 +407,7 @@ Escopo previsto:
 - manter `backend/report-model.js` como fonte estruturada de dados;
 - atualizar grafico Radar Office nativo existente no template a partir de `gap_radar`;
 - preencher fluxo em shapes/conectores Word editaveis existentes no template;
+- preencher mapa de software e mapa de processos em shapes/conectores Word editaveis existentes no template;
 - substituir secoes principais ainda tabeladas por mapas/fluxos/roadmap visuais editaveis;
 - manter tabelas apenas como detalhe/auditoria, nao como visual principal;
 - regenerar `backend/templates/assessment-operational-template.docx`;

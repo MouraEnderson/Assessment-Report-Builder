@@ -286,12 +286,22 @@ function systemsSection() {
   return [
     ...section('02', 'Sistemas e processos', 'Mapa editavel dos sistemas, processos, dores e evidencias extraidas.'),
     paragraph('Sistemas identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de software/sistemas.
+    paragraph('{native_software_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Area', 'Sistema', 'Uso', 'Dores', 'Oportunidades', 'Evidencia', 'Confianca'],
       'systems',
       ['area', 'software', 'usage', 'pain_points_text', 'opportunities_text', 'evidence', 'confidence']
     ),
     paragraph('Processos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de processos.
+    paragraph('{native_process_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Processo', 'Area', 'Sistemas', 'Dores', 'Evidencia', 'Confianca'],
       'processes',

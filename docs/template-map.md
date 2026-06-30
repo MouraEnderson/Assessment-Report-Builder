@@ -341,8 +341,8 @@ Status atual:
 - fluxo nativo implementado como shapes/conectores Word editaveis preenchidos pelo backend;
 - visual de fluxo limitado a 2 fluxos e 6 etapas por fluxo;
 - tabela detalhada preserva os demais fluxos/etapas como apoio auditavel.
-- mapa de software ainda esta tabelado;
-- processos identificados ainda estao tabelados;
+- mapa de software implementado como shapes/conectores Word editaveis;
+- processos identificados implementados como shapes/conectores Word editaveis;
 - mapa de gaps ainda esta tabelado;
 - riscos identificados ainda estao tabelados;
 - roadmap ainda esta tabelado.

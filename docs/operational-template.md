@@ -48,6 +48,8 @@ O DOCX ativo contem apenas:
 - secoes genericas numeradas;
 - tabelas editaveis;
 - grafico Radar Office nativo editavel;
+- mapa de software/sistemas em shapes/conectores Word nativos;
+- mapa de processos em shapes/conectores Word nativos;
 - shapes/conectores Word nativos para fluxo visual resumido;
 - matriz/radar de gaps editavel em tabela como apoio;
 - visao horizontal de fluxo editavel em tabela como apoio, limitada a 6 etapas por fluxo;
@@ -72,7 +74,7 @@ As seções abaixo devem ser tratadas como mapas, fluxos ou gráficos editáveis
 | Detalhamento do fluxo | fluxo detalhado quando couber | apoio para excesso de etapas |
 | Roadmap | linha do tempo/fluxo por ondas | somente apoio |
 
-O template atual ainda nao atende esse contrato por completo. O radar nativo e o fluxo visual resumido avancaram, mas mapa de software, processos, mapa de gaps, riscos, detalhamento visual e roadmap ainda precisam sair do formato predominantemente tabelado.
+O template atual ainda nao atende esse contrato por completo. Radar nativo, mapa de software, mapa de processos e fluxo visual resumido avancaram. Mapa de gaps, riscos, detalhamento visual e roadmap ainda precisam sair do formato predominantemente tabelado.
 
 Nao deve conter:
 
@@ -181,6 +183,15 @@ Fluxo nativo:
 - DOCX local e DOCX vindo do endpoint local abriram no Microsoft Word;
 - Microsoft Word reconheceu os shapes do fluxo no documento (`Shapes=24`).
 
+Mapa de software e processos:
+
+- o template operacional contem shapes e conectores Word nativos para mapa de software/sistemas;
+- o template operacional contem shapes e conectores Word nativos para mapa de processos;
+- o backend preenche os textos dos shapes via placeholders `software_shape_*` e `process_shape_*`;
+- a tabela de sistemas e a tabela de processos continuam como apoio/inventario;
+- DOCX local e DOCX vindo do endpoint local abriram no Microsoft Word;
+- Microsoft Word reconheceu os objetos visuais no documento (`Shapes=49`, `InlineChartCount=1`).
+
 Validacao negativa:
 
 - um DOCX contaminado antigo foi bloqueado por `DOCX_EXPORT_TEMPLATE_LEAK`.
@@ -195,8 +206,6 @@ As tabelas atuais de radar e fluxo nao sao consideradas o visual final aceito pa
 
 A proxima etapa visual deve reconstruir:
 
-- mapa de software como visual editavel;
-- processos identificados como fluxo/mapa editavel;
 - mapa de gaps como visual editavel;
 - riscos identificados como mapa/fluxo editavel;
 - detalhamento de fluxo como visual quando couber;
