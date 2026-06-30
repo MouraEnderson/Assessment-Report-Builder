@@ -104,6 +104,23 @@
     return '<span class="assessment-count"><strong>' + escapeHtml(value) + '</strong>' + escapeHtml(label) + '</span>';
   }
 
+  function formatServerError(error, body) {
+    var details;
+    if (!body || !body.validation) return error.message;
+
+    details = (body.validation.errors || []).slice(0, 3).map(function (item) {
+      return (item.path || '/') + ' ' + (item.message || item.keyword || 'erro de schema');
+    });
+
+    if (!details.length) {
+      details = (body.validation.warnings || []).slice(0, 3).map(function (item) {
+        return (item.related_section || '/') + ' ' + (item.message || item.code || 'alerta');
+      });
+    }
+
+    return details.length ? error.message + ' Detalhe: ' + details.join(' | ') : error.message;
+  }
+
   function textValue(value, fallback) {
     if (value == null || value === '') return fallback || '-';
     if (Array.isArray(value)) return value.filter(Boolean).join('; ') || (fallback || '-');
@@ -615,7 +632,7 @@
       template_source: { type: 'not_selected' }
     }, function (error, body) {
       if (error) {
-        setStatus(els.op, 'Falha: ' + error.message, 'error');
+        setStatus(els.op, 'Falha: ' + formatServerError(error, body), 'error');
         return;
       }
       s.assessment = body.assessment;

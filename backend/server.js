@@ -1174,7 +1174,8 @@ function normalizeQualitySeverity(value) {
 }
 
 function normalizeGenericContentRisk(value) {
-  return normalizeEnum(value, ['Baixo', 'MÃ©dio', 'Alto', 'NÃ£o avaliado'], 'NÃ£o avaliado');
+  const allowedValues = assessmentSchema.$defs.qualityReview.properties.generic_content_risk.enum;
+  return normalizeEnum(value, allowedValues, allowedValues[allowedValues.length - 1]);
 }
 
 function normalizeReportModel(rawReportModel) {
