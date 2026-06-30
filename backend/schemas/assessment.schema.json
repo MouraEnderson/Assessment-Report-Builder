@@ -172,7 +172,7 @@
     },
     "impactLevel": {
       "type": "string",
-      "enum": ["Baixo", "MÃ©dio", "Alto", "CrÃ­tico", "NÃ£o avaliado"]
+      "enum": ["Baixo", "Médio", "Alto", "Crítico", "Não avaliado"]
     },
     "inputSource": {
       "type": "object",
@@ -590,7 +590,7 @@
           "items": { "$ref": "#/$defs/qualityIssue" }
         },
         "evidence_gaps": { "type": "array", "items": { "type": "string" } },
-        "generic_content_risk": { "type": "string", "enum": ["Baixo", "MÃ©dio", "Alto", "NÃ£o avaliado"] },
+        "generic_content_risk": { "type": "string", "enum": ["Baixo", "Médio", "Alto", "Não avaliado"] },
         "required_human_review": { "type": "boolean" }
       }
     },

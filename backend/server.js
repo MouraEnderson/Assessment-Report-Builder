@@ -1068,6 +1068,11 @@ function normalizeEnum(value, allowedValues, fallback) {
   return allowedValues.find((allowed) => normalizeAccentless(allowed) === normalizedValue) || fallback;
 }
 
+function schemaEnum(path, fallbackValues) {
+  const values = path.reduce((current, key) => (current && current[key] != null ? current[key] : null), assessmentSchema);
+  return Array.isArray(values) && values.length ? values : fallbackValues;
+}
+
 function nullableText(value) {
   if (value == null) return null;
   const text = String(value).trim();
@@ -1128,27 +1133,33 @@ function boundedScore(value) {
 }
 
 function normalizeConfidence(value) {
-  return normalizeEnum(value, ['Baixa', 'Média', 'Alta', 'Não avaliada'], 'Não avaliada');
+  const allowedValues = schemaEnum(['$defs', 'confidence', 'enum'], ['Baixa', 'Média', 'Alta', 'Não avaliada']);
+  return normalizeEnum(value, allowedValues, allowedValues[allowedValues.length - 1]);
 }
 
 function normalizeReviewState(value) {
-  return normalizeEnum(value, ['Pendente', 'Revisado', 'Aprovado', 'Rejeitado', 'Regenerar'], 'Pendente');
+  const allowedValues = schemaEnum(['$defs', 'reviewState', 'enum'], ['Pendente', 'Revisado', 'Aprovado', 'Rejeitado', 'Regenerar']);
+  return normalizeEnum(value, allowedValues, 'Pendente');
 }
 
 function normalizeImpact(value) {
-  return normalizeEnum(value, ['Baixo', 'Médio', 'Alto', 'Crítico', 'Não avaliado'], 'Não avaliado');
+  const allowedValues = schemaEnum(['$defs', 'impactLevel', 'enum'], ['Baixo', 'Médio', 'Alto', 'Crítico', 'Não avaliado']);
+  return normalizeEnum(value, allowedValues, allowedValues[allowedValues.length - 1]);
 }
 
 function normalizePriority(value) {
-  return normalizeEnum(value, ['Baixa', 'Média', 'Alta', 'Crítica', 'Não avaliada'], 'Não avaliada');
+  const allowedValues = schemaEnum(['$defs', 'recommendationItem', 'properties', 'priority', 'enum'], ['Baixa', 'Média', 'Alta', 'Crítica', 'Não avaliada']);
+  return normalizeEnum(value, allowedValues, allowedValues[allowedValues.length - 1]);
 }
 
 function normalizeEffort(value) {
-  return normalizeEnum(value, ['Baixo', 'Médio', 'Alto', 'Não avaliado'], 'Não avaliado');
+  const allowedValues = schemaEnum(['$defs', 'recommendationItem', 'properties', 'effort', 'enum'], ['Baixo', 'Médio', 'Alto', 'Não avaliado']);
+  return normalizeEnum(value, allowedValues, allowedValues[allowedValues.length - 1]);
 }
 
 function normalizeClassification(value) {
-  return normalizeEnum(value, ['Fato', 'Hipótese', 'Pendência'], 'Pendência');
+  const allowedValues = schemaEnum(['$defs', 'gapItem', 'properties', 'classification', 'enum'], ['Fato', 'Hipótese', 'Pendência']);
+  return normalizeEnum(value, allowedValues, allowedValues[allowedValues.length - 1]);
 }
 
 function normalizeGenerationMode(value) {
@@ -1162,19 +1173,22 @@ function normalizeFlowType(value) {
 }
 
 function normalizeOpenQuestionStatus(value) {
-  return normalizeEnum(value, ['Aberta', 'Respondida', 'Descartada'], 'Aberta');
+  const allowedValues = schemaEnum(['$defs', 'openQuestionItem', 'properties', 'status', 'enum'], ['Aberta', 'Respondida', 'Descartada']);
+  return normalizeEnum(value, allowedValues, 'Aberta');
 }
 
 function normalizeQualityReadiness(value) {
-  return normalizeEnum(value, ['blocked', 'draft', 'review_ready'], 'draft');
+  const allowedValues = schemaEnum(['$defs', 'qualityReview', 'properties', 'readiness', 'enum'], ['blocked', 'draft', 'review_ready']);
+  return normalizeEnum(value, allowedValues, 'draft');
 }
 
 function normalizeQualitySeverity(value) {
-  return normalizeEnum(value, ['info', 'warning', 'blocking'], 'warning');
+  const allowedValues = schemaEnum(['$defs', 'qualityIssue', 'properties', 'severity', 'enum'], ['info', 'warning', 'blocking']);
+  return normalizeEnum(value, allowedValues, 'warning');
 }
 
 function normalizeGenericContentRisk(value) {
-  const allowedValues = assessmentSchema.$defs.qualityReview.properties.generic_content_risk.enum;
+  const allowedValues = schemaEnum(['$defs', 'qualityReview', 'properties', 'generic_content_risk', 'enum'], ['Baixo', 'Médio', 'Alto', 'Não avaliado']);
   return normalizeEnum(value, allowedValues, allowedValues[allowedValues.length - 1]);
 }
 
