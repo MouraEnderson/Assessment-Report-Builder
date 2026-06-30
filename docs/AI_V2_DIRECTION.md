@@ -361,6 +361,9 @@ Status:
 - warnings de qualidade aparecem no resultado de validacao;
 - ainda nao ha persistencia separada de cada etapa intermediaria;
 - ainda nao ha reprocessamento isolado de uma unica secao.
+- chamada unica possui limite operacional `AI_MAX_INPUT_CHARS`;
+- documento acima do limite retorna `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`, sem corte silencioso;
+- proximo passo obrigatorio para documentos grandes e pipeline por chunks com consolidacao.
 
 ### PR IA-4 - UI de revisao inteligente
 

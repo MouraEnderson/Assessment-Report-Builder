@@ -223,6 +223,7 @@
   function request(method, url, payload, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
+    xhr.timeout = 130000;
     xhr.setRequestHeader('Accept', 'application/json');
     if (payload) xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.onreadystatechange = function () {
@@ -242,6 +243,9 @@
     };
     xhr.onerror = function () {
       callback(new Error('Falha de rede.'), null);
+    };
+    xhr.ontimeout = function () {
+      callback(new Error('Tempo limite excedido ao aguardar o backend.'), null);
     };
     xhr.send(payload ? JSON.stringify(payload) : null);
   }

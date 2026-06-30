@@ -37,6 +37,7 @@ const geminiApiKey = process.env.GEMINI_API_KEY || '';
 const configuredGeminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const geminiModel = configuredGeminiModel === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : configuredGeminiModel;
 const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 60000);
+const aiGenerationTimeoutMs = Number(process.env.AI_GENERATION_TIMEOUT_MS || 110000);
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -223,10 +224,20 @@ function extractJsonObject(text) {
   const last = candidate.lastIndexOf('}');
 
   if (first < 0 || last < first) {
+    const error = new Error('A IA nao retornou um objeto JSON.');
+    error.code = 'AI_RESPONSE_JSON_MISSING_OBJECT';
+    throw error;
     throw new Error('A IA não retornou um objeto JSON.');
   }
 
-  return JSON.parse(candidate.slice(first, last + 1));
+  try {
+    return JSON.parse(candidate.slice(first, last + 1));
+  } catch (parseError) {
+    const error = new Error('A IA retornou JSON malformado. O assessment nao foi salvo porque nao passou pelo contrato oficial.');
+    error.code = 'AI_RESPONSE_JSON_INVALID';
+    error.parse_message = parseError.message;
+    throw error;
+  }
 }
 
 function safeText(value) {
@@ -1004,6 +1015,19 @@ function buildAssessmentPromptV2(input) {
     '- flow type: AS-IS ou TO-BE.',
     '- quality readiness: blocked, draft, review_ready.',
     '- quality severity: info, warning, blocking.',
+    '- Limites obrigatorios de volume para manter JSON valido:',
+    '  - software_map: maximo 8 itens.',
+    '  - process_map: maximo 8 itens.',
+    '  - gap_map: maximo 10 itens.',
+    '  - risks: maximo 8 itens.',
+    '  - recommendations: maximo 10 itens.',
+    '  - roadmap: maximo 6 ondas.',
+    '  - report_model.software_network.nodes: maximo 10 nodes.',
+    '  - report_model.software_network.links: maximo 12 links.',
+    '  - report_model.process_flows: maximo 4 fluxos, maximo 8 passos por fluxo.',
+    '  - report_model.gap_analysis: maximo 10 gaps.',
+    '  - report_model.maturity_radar: maximo 8 categorias.',
+    '  - Textos narrativos devem ser objetivos; nao gere texto longo quando um paragrafo curto resolve.',
     '',
     'Tarefas consultivas obrigatorias:',
     '1. Extracao fiel: identifique cliente, contexto, sistemas, processos, dores, riscos, evidencias e lacunas.',
@@ -1479,7 +1503,7 @@ async function createAssessmentWithGemini(input) {
       responseMimeType: 'application/json'
     }
   });
-  const result = await model.generateContent(buildAssessmentPromptV2(input));
+  const result = await model.generateContent(buildAssessmentPromptV2(input), { timeout: aiGenerationTimeoutMs });
   const response = result.response;
   const jsonText = response.text();
   return normalizeAiAssessment(extractJsonObject(jsonText), input);
@@ -1602,6 +1626,20 @@ app.post('/api/assessment/generate', async (req, res) => {
     });
   }
 
+  const normalizedTranscriptText = normalizeExtractedText(transcriptText);
+  if (normalizedTranscriptText.length > maxAiInputCharacters) {
+    return res.status(413).json({
+      ok: false,
+      error: 'AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL',
+      message: `Documento com ${normalizedTranscriptText.length} caracteres excede o limite confiavel de ${maxAiInputCharacters} caracteres para uma chamada unica de IA. Proxima etapa tecnica necessaria: pipeline por chunks com consolidacao, sem corte silencioso.`,
+      diagnostics: {
+        character_count: normalizedTranscriptText.length,
+        max_ai_input_characters: maxAiInputCharacters,
+        required_architecture: 'chunked_ai_pipeline'
+      }
+    });
+  }
+
   const allowedModes = ['conservador', 'consultivo', 'executivo'];
   if (input.generation_mode && !allowedModes.includes(input.generation_mode)) {
     return res.status(400).json({
@@ -1615,12 +1653,16 @@ app.post('/api/assessment/generate', async (req, res) => {
   try {
     assessment = geminiEnabled() ? await createAssessmentWithGemini(input) : createAssessmentDraft(input);
   } catch (error) {
-    return res.status(502).json({
+    const isTimeout = error.message && /abort|timeout|timed out/i.test(error.message);
+    const isJsonError = error.code === 'AI_RESPONSE_JSON_INVALID' || error.code === 'AI_RESPONSE_JSON_MISSING_OBJECT';
+    return res.status(isTimeout ? 504 : 502).json({
       ok: false,
-      error: 'AI_ASSESSMENT_GENERATION_FAILED',
+      error: isTimeout ? 'AI_ASSESSMENT_TIMEOUT' : (isJsonError ? error.code : 'AI_ASSESSMENT_GENERATION_FAILED'),
       message: error.message || 'Falha ao gerar assessment com IA.',
+      details: error.parse_message || null,
       provider: 'gemini',
-      model: geminiModel
+      model: geminiModel,
+      timeout_ms: aiGenerationTimeoutMs
     });
   }
 

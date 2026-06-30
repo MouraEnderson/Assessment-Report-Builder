@@ -100,7 +100,15 @@ Variavel opcional:
 
 ```text
 AI_MAX_INPUT_CHARS=60000
+AI_GENERATION_TIMEOUT_MS=110000
 ```
+
+Premissa operacional atual:
+
+- A geracao IA em chamada unica aceita ate `AI_MAX_INPUT_CHARS`.
+- Documento acima desse limite deve parar com `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`.
+- Nao e permitido cortar silenciosamente o documento para gerar relatorio parcial.
+- Proxima arquitetura necessaria para documentos grandes: pipeline IA por chunks com consolidacao e quality review final.
 
 ## Backup de Seguranca
 
