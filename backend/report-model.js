@@ -149,6 +149,56 @@ function buildNativeProcessPlaceholders(processMap) {
   return result;
 }
 
+function buildNativeGapPlaceholders(gapMap) {
+  const gaps = compactArray(gapMap).slice(0, 6);
+  const result = {};
+
+  for (let index = 0; index < 6; index += 1) {
+    const item = gaps[index] || {};
+    result[`gap_shape_${index + 1}_title`] = truncateText(item.category || item.id || `Gap ${index + 1}`, 38);
+    result[`gap_shape_${index + 1}_body`] = truncateText([
+      safeText(item.description, ''),
+      safeText(item.impact, ''),
+      safeText(item.recommendation, '')
+    ].filter(Boolean).join(' | '), 105);
+  }
+
+  return result;
+}
+
+function buildNativeRiskPlaceholders(risks) {
+  const riskItems = compactArray(risks).slice(0, 5);
+  const result = {};
+
+  for (let index = 0; index < 5; index += 1) {
+    const item = riskItems[index] || {};
+    result[`risk_shape_${index + 1}_title`] = truncateText(item.impact || item.probability || `Risco ${index + 1}`, 34);
+    result[`risk_shape_${index + 1}_body`] = truncateText([
+      safeText(item.description, ''),
+      safeText(item.mitigation, '')
+    ].filter(Boolean).join(' | '), 105);
+  }
+
+  return result;
+}
+
+function buildNativeRoadmapPlaceholders(roadmap) {
+  const items = compactArray(roadmap).slice(0, 5);
+  const result = {};
+
+  for (let index = 0; index < 5; index += 1) {
+    const item = items[index] || {};
+    result[`roadmap_shape_${index + 1}_title`] = truncateText(item.phase || `Onda ${index + 1}`, 32);
+    result[`roadmap_shape_${index + 1}_body`] = truncateText([
+      safeText(item.title, ''),
+      safeText(item.description, ''),
+      safeText(item.dependencies, '')
+    ].filter(Boolean).join(' | '), 110);
+  }
+
+  return result;
+}
+
 function radarRiskLevel(score) {
   if (score >= 4) return 'Critico';
   if (score >= 3) return 'Alto';
@@ -216,6 +266,9 @@ function buildReportModel(assessment) {
   const nativeFlowPlaceholders = buildNativeFlowPlaceholders(source.flows);
   const nativeSoftwarePlaceholders = buildNativeSoftwarePlaceholders(source.software_map);
   const nativeProcessPlaceholders = buildNativeProcessPlaceholders(source.process_map);
+  const nativeGapPlaceholders = buildNativeGapPlaceholders(source.gap_map);
+  const nativeRiskPlaceholders = buildNativeRiskPlaceholders(source.risks);
+  const nativeRoadmapPlaceholders = buildNativeRoadmapPlaceholders(source.roadmap);
 
   const cover = {
     title: 'Assessment de Engenharia',
@@ -248,6 +301,9 @@ function buildReportModel(assessment) {
     },
     ...nativeSoftwarePlaceholders,
     ...nativeProcessPlaceholders,
+    ...nativeGapPlaceholders,
+    ...nativeRiskPlaceholders,
+    ...nativeRoadmapPlaceholders,
     systems: compactArray(source.software_map).map((item) => ({
       area: safeText(item.area),
       software: safeText(item.software),

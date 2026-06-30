@@ -343,8 +343,8 @@ Status atual:
 - tabela detalhada preserva os demais fluxos/etapas como apoio auditavel.
 - mapa de software implementado como shapes/conectores Word editaveis;
 - processos identificados implementados como shapes/conectores Word editaveis;
-- mapa de gaps ainda esta tabelado;
-- riscos identificados ainda estao tabelados;
-- roadmap ainda esta tabelado.
+- mapa de gaps implementado como shapes/conectores Word editaveis;
+- riscos identificados implementados como shapes/conectores Word editaveis;
+- roadmap implementado como shapes/conectores Word editaveis.
 
 Tabela nao substitui o fluxo visual final. Imagem estatica tambem nao atende ao requisito sem aprovacao explicita.

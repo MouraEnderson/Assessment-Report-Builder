@@ -50,6 +50,9 @@ O DOCX ativo contem apenas:
 - grafico Radar Office nativo editavel;
 - mapa de software/sistemas em shapes/conectores Word nativos;
 - mapa de processos em shapes/conectores Word nativos;
+- mapa de gaps em shapes/conectores Word nativos;
+- mapa de riscos em shapes/conectores Word nativos;
+- roadmap em shapes/conectores Word nativos;
 - shapes/conectores Word nativos para fluxo visual resumido;
 - matriz/radar de gaps editavel em tabela como apoio;
 - visao horizontal de fluxo editavel em tabela como apoio, limitada a 6 etapas por fluxo;
@@ -74,7 +77,7 @@ As seções abaixo devem ser tratadas como mapas, fluxos ou gráficos editáveis
 | Detalhamento do fluxo | fluxo detalhado quando couber | apoio para excesso de etapas |
 | Roadmap | linha do tempo/fluxo por ondas | somente apoio |
 
-O template atual ainda nao atende esse contrato por completo. Radar nativo, mapa de software, mapa de processos e fluxo visual resumido avancaram. Mapa de gaps, riscos, detalhamento visual e roadmap ainda precisam sair do formato predominantemente tabelado.
+O template atual ainda nao atende esse contrato por completo. Radar nativo, mapa de software, mapa de processos, mapa de gaps, riscos, roadmap e fluxo visual resumido avancaram. Detalhamento visual e refinamento fino de fidelidade ainda precisam evoluir.
 
 Nao deve conter:
 
@@ -192,6 +195,16 @@ Mapa de software e processos:
 - DOCX local e DOCX vindo do endpoint local abriram no Microsoft Word;
 - Microsoft Word reconheceu os objetos visuais no documento (`Shapes=49`, `InlineChartCount=1`).
 
+Mapa de gaps, riscos e roadmap:
+
+- o template operacional contem shapes e conectores Word nativos para mapa de gaps;
+- o template operacional contem shapes e conectores Word nativos para riscos identificados;
+- o template operacional contem shapes e conectores Word nativos para roadmap;
+- o backend preenche os textos dos shapes via placeholders `gap_shape_*`, `risk_shape_*` e `roadmap_shape_*`;
+- as tabelas de gaps, riscos e roadmap continuam como apoio/auditoria;
+- DOCX local e DOCX vindo do endpoint local abriram no Microsoft Word;
+- Microsoft Word reconheceu os objetos visuais no documento (`Shapes=78`, `InlineChartCount=1`).
+
 Validacao negativa:
 
 - um DOCX contaminado antigo foi bloqueado por `DOCX_EXPORT_TEMPLATE_LEAK`.
@@ -204,12 +217,9 @@ Ele melhora a estrutura visual limpa com capa, secoes, caixas e tabelas de apoio
 
 As tabelas atuais de radar e fluxo nao sao consideradas o visual final aceito para a entrega. Elas ficam como detalhamento editavel e apoio de auditoria.
 
-A proxima etapa visual deve reconstruir:
+A proxima etapa visual deve reconstruir/refinar:
 
-- mapa de gaps como visual editavel;
-- riscos identificados como mapa/fluxo editavel;
 - detalhamento de fluxo como visual quando couber;
-- roadmap como linha do tempo/fluxo visual editavel;
 - refinamento de capa e espacamentos com base em comparacao visual.
 
 Essa etapa visual so deve avancar mantendo o guardrail anti-contaminacao ativo.

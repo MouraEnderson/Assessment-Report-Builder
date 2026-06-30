@@ -315,6 +315,11 @@ function gapSection() {
   return [
     ...section('03', 'Gaps, riscos e maturidade', 'Classificacao de gaps e matriz de maturidade editavel no Word.'),
     paragraph('Mapa de gaps', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de gaps.
+    paragraph('{native_gap_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Gap', 'Categoria', 'Impacto', 'Recomendacao', 'Evidencia', 'Status'],
       'gaps',
@@ -334,6 +339,11 @@ function gapSection() {
       { headerFill: COLORS.blue }
     ),
     paragraph('Riscos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de riscos.
+    paragraph('{native_risk_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Risco', 'Probabilidade', 'Impacto', 'Mitigacao', 'Evidencia'],
       'risks',
@@ -380,6 +390,11 @@ function roadmapSection() {
       ['title', 'description', 'priority', 'effort', 'status']
     ),
     paragraph('Roadmap', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por linha do tempo visual.
+    paragraph('{native_roadmap}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Fase', 'Titulo', 'Descricao', 'Dependencias'],
       'roadmap',
