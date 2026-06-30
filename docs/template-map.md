@@ -340,7 +340,9 @@ Status atual:
 - radar Office nativo implementado no template operacional e atualizado pelo backend;
 - fluxo nativo implementado como shapes/conectores Word editaveis preenchidos pelo backend;
 - visual de fluxo limitado a 2 fluxos e 6 etapas por fluxo;
-- tabela detalhada preserva os demais fluxos/etapas como apoio auditavel.
+- detalhamento visual de fluxo implementado como shapes/conectores Word editaveis;
+- detalhamento visual limitado a 8 etapas no desenho principal;
+- tabela detalhada preserva os demais fluxos/etapas como apoio auditavel;
 - mapa de software implementado como shapes/conectores Word editaveis;
 - processos identificados implementados como shapes/conectores Word editaveis;
 - mapa de gaps implementado como shapes/conectores Word editaveis;

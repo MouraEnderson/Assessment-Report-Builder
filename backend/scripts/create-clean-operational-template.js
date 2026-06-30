@@ -370,6 +370,11 @@ function flowSection() {
       { headerFill: COLORS.blue, bodySize: 14 }
     ),
     paragraph('Detalhamento do fluxo', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por fluxo detalhado visual.
+    paragraph('{native_flow_detail}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Fluxo', 'Tipo', 'Ordem', 'Entrada', 'Atividade', 'Responsavel', 'Saida', 'Sistema', 'Area', 'Ponto de atencao'],
       'flow_steps',

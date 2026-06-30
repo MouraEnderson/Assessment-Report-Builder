@@ -109,6 +109,28 @@ function buildNativeFlowPlaceholders(flows) {
   return result;
 }
 
+function buildNativeFlowDetailPlaceholders(flows) {
+  const steps = flattenFlowSteps(flows).slice(0, 8);
+  const result = {};
+
+  for (let index = 0; index < 8; index += 1) {
+    const step = steps[index] || {};
+    result[`flow_detail_shape_${index + 1}_title`] = truncateText([
+      safeText(step.order, ''),
+      safeText(step.flow_name, '')
+    ].filter(Boolean).join(' - '), 34);
+    result[`flow_detail_shape_${index + 1}_body`] = truncateText([
+      safeText(step.input, ''),
+      safeText(step.activity, ''),
+      safeText(step.output, ''),
+      safeText(step.system, ''),
+      safeText(step.responsible, '')
+    ].filter(Boolean).join(' | '), 120);
+  }
+
+  return result;
+}
+
 function truncateText(value, maxLength = 80) {
   const text = safeText(value, '').replace(/\s+/g, ' ').trim();
   if (!text) return '-';
@@ -264,6 +286,7 @@ function buildReportModel(assessment) {
   const metadata = source.metadata || {};
   const executiveSummary = source.executive_summary || {};
   const nativeFlowPlaceholders = buildNativeFlowPlaceholders(source.flows);
+  const nativeFlowDetailPlaceholders = buildNativeFlowDetailPlaceholders(source.flows);
   const nativeSoftwarePlaceholders = buildNativeSoftwarePlaceholders(source.software_map);
   const nativeProcessPlaceholders = buildNativeProcessPlaceholders(source.process_map);
   const nativeGapPlaceholders = buildNativeGapPlaceholders(source.gap_map);
@@ -334,6 +357,7 @@ function buildReportModel(assessment) {
     gap_radar: buildRadarRows(source.gap_radar),
     native_flow_diagrams: '__NATIVE_FLOW_DIAGRAMS__',
     ...nativeFlowPlaceholders,
+    ...nativeFlowDetailPlaceholders,
     flow_visuals: buildFlowVisuals(source.flows),
     flow_steps: flattenFlowSteps(source.flows),
     risks: compactArray(source.risks).map((item) => ({

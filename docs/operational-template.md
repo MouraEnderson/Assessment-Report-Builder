@@ -54,6 +54,7 @@ O DOCX ativo contem apenas:
 - mapa de riscos em shapes/conectores Word nativos;
 - roadmap em shapes/conectores Word nativos;
 - shapes/conectores Word nativos para fluxo visual resumido;
+- shapes/conectores Word nativos para detalhamento visual de fluxo;
 - matriz/radar de gaps editavel em tabela como apoio;
 - visao horizontal de fluxo editavel em tabela como apoio, limitada a 6 etapas por fluxo;
 - tabela detalhada de etapas de fluxo;
@@ -77,7 +78,7 @@ As seções abaixo devem ser tratadas como mapas, fluxos ou gráficos editáveis
 | Detalhamento do fluxo | fluxo detalhado quando couber | apoio para excesso de etapas |
 | Roadmap | linha do tempo/fluxo por ondas | somente apoio |
 
-O template atual ainda nao atende esse contrato por completo. Radar nativo, mapa de software, mapa de processos, mapa de gaps, riscos, roadmap e fluxo visual resumido avancaram. Detalhamento visual e refinamento fino de fidelidade ainda precisam evoluir.
+O template atual ainda nao atende esse contrato por completo. Radar nativo, mapa de software, mapa de processos, mapa de gaps, riscos, roadmap, fluxo visual resumido e detalhamento visual de fluxo avancaram. Refinamento fino de fidelidade ainda precisa evoluir.
 
 Nao deve conter:
 
@@ -186,6 +187,15 @@ Fluxo nativo:
 - DOCX local e DOCX vindo do endpoint local abriram no Microsoft Word;
 - Microsoft Word reconheceu os shapes do fluxo no documento (`Shapes=24`).
 
+Detalhamento visual de fluxo:
+
+- o template operacional contem shapes e conectores Word nativos para ate 8 etapas detalhadas;
+- cada etapa detalhada consolida entrada, atividade, saida, sistema e responsavel quando evidenciados;
+- o backend preenche os textos dos shapes via placeholders `flow_detail_shape_*`;
+- a tabela detalhada continua como apoio para etapas excedentes e auditoria granular;
+- DOCX vindo do endpoint local abriu no Microsoft Word;
+- Microsoft Word reconheceu os objetos visuais no documento (`Shapes=93`, `InlineChartCount=1`).
+
 Mapa de software e processos:
 
 - o template operacional contem shapes e conectores Word nativos para mapa de software/sistemas;
@@ -219,7 +229,6 @@ As tabelas atuais de radar e fluxo nao sao consideradas o visual final aceito pa
 
 A proxima etapa visual deve reconstruir/refinar:
 
-- detalhamento de fluxo como visual quando couber;
 - refinamento de capa e espacamentos com base em comparacao visual.
 
 Essa etapa visual so deve avancar mantendo o guardrail anti-contaminacao ativo.
