@@ -217,6 +217,10 @@ Dado editável é a fonte oficial.
 
 O mapa de software não deve ser apenas uma lista de nomes.
 
+No relatório final, `software_map` deve ser representado como mapa visual editável, com caixas de sistemas/ferramentas e relações entre eles quando houver evidência de troca, handoff, duplicidade, decisão manual, integração, armazenamento ou controle paralelo.
+
+Tabela de softwares é permitida somente como apoio auditável, inventário ou detalhe, não como representação visual principal.
+
 Campos esperados:
 
 ```text
@@ -284,6 +288,8 @@ Radar visual
 
 O usuário pode editar o score, mas a origem do score deve continuar rastreável.
 
+No relatório final, `gap_radar` deve aparecer como radar visual real. A matriz/tabela de scores é apenas base de dados de apoio. Não é aceitável entregar "radar de gaps" somente como tabela ou matriz.
+
 ---
 
 ## 12. Fluxos AS-IS e TO-BE
@@ -305,6 +311,25 @@ Campos de etapa esperados:
 ```
 
 O desenho visual será uma renderização desses dados.
+
+## 12.1. Premissa visual obrigatoria do relatorio
+
+O relatório final não deve ser uma coleção de tabelas. Para apresentação executiva, as seções abaixo devem ser renderizadas como objetos visuais editáveis no Word sempre que houver dados suficientes:
+
+```text
+Sistemas identificados      -> mapa de software / mapa de sistemas
+Processos identificados     -> fluxo ou mapa de processo
+Mapa de gaps                -> mapa visual de gaps e impactos
+Radar de gaps               -> radar visual real
+Riscos identificados        -> fluxo/mapa visual de riscos
+Fluxo visual resumido       -> fluxo AS-IS / TO-BE com caixas e conectores
+Detalhamento do fluxo       -> fluxo detalhado quando couber; tabela apenas como apoio
+Roadmap                     -> fluxo/linha do tempo visual por ondas
+```
+
+Tabelas continuam necessárias para auditoria, rastreabilidade e edição granular, mas não substituem os mapas, fluxos, radar e roadmap visuais.
+
+Imagem estática só pode ser usada como referência visual ou preview. A entrega operacional deve priorizar objetos editáveis do Word: gráfico Office nativo, shapes, conectores, SmartArt ou outro objeto Word editável.
 
 ---
 

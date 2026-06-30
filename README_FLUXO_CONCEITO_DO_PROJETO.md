@@ -10,8 +10,8 @@ O fluxo desejado é:
 Documento DOCX do assessment
     -> importacao local ou bookmark manual
     -> extracao de texto
-    -> geracao IA com Gemini
-    -> assessment.json validado por schema
+    -> IA V2 com Gemini: extracao fiel + analise consultiva + report_model
+    -> assessment.json/report_model validado por schema e qualidade
     -> revisao humana
     -> relatorio DOCX editavel baseado em template
 ```
@@ -39,6 +39,27 @@ https://assessment-report-builder.onrender.com/frontend/index.html
 O usuario tem um assessment em DOCX, local ou baixado manualmente de uma bookmark do 3DEXPERIENCE.
 
 O widget importa esse arquivo, extrai o texto, preserva a origem e chama o backend Render. O backend usa IA para estruturar o conteudo no contrato oficial `assessment.json`. Esse JSON é a fonte da verdade para revisao e futura geracao de DOCX final editavel.
+
+## Direcionamento IA V2
+
+A IA passa a ser tratada como motor consultivo do projeto, nao apenas como parser para JSON.
+
+O backend deve continuar validando schema, bloqueando erro real e renderizando DOCX editavel. A IA deve gerar a inteligencia do assessment:
+
+- extracao fiel de fatos, hipoteses e pendencias;
+- analise consultiva de processos, sistemas, gaps e riscos;
+- narrativas prontas para relatorio;
+- mapas, fluxos, radar e roadmap como estruturas renderizaveis;
+- perguntas abertas quando faltar evidencia;
+- revisao de qualidade antes da exportacao.
+
+O `assessment.json` continua sendo a fonte rastreavel para revisao. A evolucao IA V2 adiciona uma camada `report_model` orientada ao template e uma camada `quality_review` para bloquear relatorio fraco, generico ou sem evidencia.
+
+Documento de direcao:
+
+```text
+docs/AI_V2_DIRECTION.md
+```
 
 ## Arquitetura
 
@@ -100,6 +121,15 @@ Esse backup representa o estado em que:
 - o radar de gaps existe como matriz editavel em tabela;
 - o fluxo existe como tabela editavel.
 
+Antes da evolucao IA V2, foi criado outro ponto de retorno:
+
+```text
+Tag: backup-before-ai-v2-direction-2026-06-30
+Branch atual: codex/visual-flow-radar-docx
+```
+
+Esse backup representa o estado com PR visual em andamento antes da mudanca de direcao da IA.
+
 ## Premissas Atuais
 
 1. O `assessment.json` e a fonte da verdade.
@@ -112,6 +142,10 @@ Esse backup representa o estado em que:
 8. O guardrail anti-contaminacao nao deve ser removido para melhorar visual.
 9. O link oficial permanece `https://assessment-report-builder.onrender.com/`.
 10. Render nao recebe credenciais, CAS ou cookies 3DEXPERIENCE.
+11. A IA V2 deve atuar como motor consultivo, nao apenas parser de JSON.
+12. A IA V2 deve gerar `report_model` orientado ao template.
+13. A IA V2 deve gerar `quality_review` para apontar falta de evidencia, excesso de inferencia e secoes fracas.
+14. O backend continua responsavel por validar, bloquear erro e renderizar DOCX; a IA nao gera DOCX diretamente.
 
 ## Etapas do Projeto
 
@@ -184,14 +218,19 @@ Evidencias:
 Objetivo:
 
 ```text
-Usar Gemini para gerar assessment.json estruturado, validado por schema.
+V1: usar Gemini para gerar assessment.json estruturado, validado por schema.
+V2: usar Gemini como motor consultivo para gerar extracao fiel, analise, report_model e quality_review.
 ```
 
 Status:
 
 ```text
-Pronto no backend.
-Pendente melhoria visual da tela principal.
+V1 pronto no backend.
+V2 contrato inicial implementado no schema/backend.
+Prompt V2 consultivo implementado no backend e usado nas chamadas Gemini.
+Validacao real com GEMINI_API_KEY no Render pendente.
+Tela principal exibe quality_review e report_model.
+Exportacao DOCX consome report_model quando disponivel.
 ```
 
 Evidencias:
@@ -199,6 +238,16 @@ Evidencias:
 - Gemini configurado com `GEMINI_API_KEY` e `GEMINI_MODEL=gemini-2.5-flash`.
 - Producao gerou `assessment.json` com `ai_extraction_status=generated`.
 - Producao retornou `valid=true`.
+- Schema IA V2 aceita `report_model` e `quality_review`.
+- Backend normaliza `report_model` e `quality_review` para novos assessments.
+- Backend possui `buildAssessmentPromptV2`.
+- Gemini passa a usar Prompt V2 consultivo.
+- Validacao retorna warnings derivados de `quality_review`.
+- Exportacao DOCX bloqueia assessment com `quality_review.readiness=blocked`.
+- Widget mostra revisao estruturada de `quality_review` e `report_model`.
+- DOCX usa `report_model` para narrativa, mapa de software, processos, fluxos, gaps, radar, riscos, recomendacoes e roadmap.
+- `/api/assessment/generate` local sem Gemini retornou `valid=true` com contrato V2.
+- `/api/assessment/export-docx` local aceitou assessment com contrato V2 e gerou DOCX Word valido.
 - Teste real com DOCX XMOBOTS retornou:
   - `softwareCount=8`
   - `gapCount=6`
@@ -208,8 +257,9 @@ Evidencias:
 Pendencia desta etapa:
 
 ```text
-Trocar a tela principal de JSON bruto por visao estruturada do assessment.
-JSON deve ficar como modo tecnico/avancado.
+Validar Prompt V2 com Gemini real apos deploy da branch.
+Avaliar se sera necessario dividir Gemini em chamadas fisicas separadas para extracao, analise, report_model e quality_review.
+Implementar regeneracao isolada por secao somente se a validacao real justificar.
 ```
 
 ### Etapa 4 - Template e DOCX final editavel
@@ -315,6 +365,13 @@ PDF = saida de leitura futura
 - `node --check backend/docx-template-renderer.js`
 - `node --check backend/scripts/create-clean-operational-template.js`
 - `node --check frontend/assets/js/assessment-runtime.js`
+- Schema compilado com AJV 2020.
+- `/api/assessment/generate` local sem `GEMINI_API_KEY` retornou `valid=true`.
+- `/api/assessment/validate` aceitou assessment V2 com `report_model` e `quality_review`.
+- `/api/assessment/export-docx` bloqueou exportacao com `quality_review.readiness=blocked` retornando `422 ASSESSMENT_QUALITY_BLOCKED`.
+- `/api/assessment/export-docx` gerou DOCX contendo marcadores exclusivos vindos de `report_model`.
+- DOCX local abriu no Microsoft Word com `Tables=21`, `Shapes=93`, `InlineShapes=1`.
+- Estrutura DOCX contem `word/charts/chart1.xml`, preservando grafico Office nativo.
 - `npm audit --omit=dev`
 - `git diff --check`
 - Importacao do DOCX XMOBOTS.
@@ -339,6 +396,11 @@ PDF = saida de leitura futura
 - DOCX de producao abre no Microsoft Word.
 - DOCX de producao renderiza cliente, resumo, gaps, radar e fluxos.
 - DOCX de producao nao contem termos herdados do template quando nao existem no assessment.
+- DOCX local validado com grafico Radar Office nativo reconhecido pelo Word como chart (`InlineChartCount=1`).
+- DOCX local e endpoint local validados com fluxo em shapes/conectores nativos do Word (`Shapes=24`).
+- DOCX local e endpoint local validados com mapa de software e mapa de processos em shapes/conectores nativos do Word (`Shapes=49`, `InlineChartCount=1`).
+- DOCX local e endpoint local validados com mapa de gaps, riscos e roadmap em shapes/conectores nativos do Word (`Shapes=78`, `InlineChartCount=1`).
+- DOCX vindo do endpoint local validado com detalhamento de fluxo em shapes/conectores nativos do Word (`Shapes=93`, `InlineChartCount=1`).
 
 ## Decisoes Tecnicas
 
@@ -353,6 +415,11 @@ PDF = saida de leitura futura
 - O link oficial nao muda.
 - O fluxo atual de bookmark é manual.
 - Nao ha fallback silencioso para dados fake.
+- Fluxos e radar de gaps devem ser objetos nativos editaveis do Word quando usados como entrega visual final.
+- Tabelas de fluxo/radar ficam apenas como detalhamento de dados e fallback de auditoria, nao como visual final aceito.
+- PNG, SVG ou imagem estatica nao atendem ao requisito final de editabilidade sem decisao explicita.
+- O relatorio final nao pode ficar predominantemente tabelado. Mapas, fluxos, radar, riscos e roadmap precisam ter representacao visual editavel no Word.
+- `software_map`, `process_map`, `gap_map`, `risks`, `flows` e `roadmap` precisam alimentar objetos visuais, mantendo tabelas apenas como apoio/auditoria.
 
 ## O Que Falta
 
@@ -362,8 +429,14 @@ PDF = saida de leitura futura
    - destacar resumo executivo, softwares, gaps, fluxos, recomendacoes e roadmap.
 
 2. Melhorar DOCX final editavel:
-   - evoluir fluxo visual editavel;
-   - evoluir radar de gaps;
+   - fluxo visual em shapes/conectores nativos do Word implementado no template operacional;
+   - radar de gaps em grafico Office nativo editavel implementado no template operacional;
+   - mapa de software em shapes/conectores nativos do Word implementado no template operacional;
+   - processos identificados em shapes/conectores nativos do Word implementados no template operacional;
+   - mapa de gaps em shapes/conectores nativos do Word implementado no template operacional;
+   - riscos identificados em shapes/conectores nativos do Word implementados no template operacional;
+   - roadmap em shapes/conectores nativos do Word implementado no template operacional;
+   - detalhamento do fluxo em shapes/conectores nativos do Word implementado no template operacional;
    - refinar capa e estilos;
    - aproximar do template oficial sem copiar conteudo fixo;
    - preservar guardrail anti-contaminacao.
@@ -372,30 +445,37 @@ PDF = saida de leitura futura
    - abrir DOCX;
    - confirmar edicao de texto;
    - confirmar edicao de tabelas;
-   - confirmar edicao de fluxos/matriz;
-   - confirmar que nao virou imagem.
+   - confirmar edicao do grafico radar via ferramenta nativa do Word;
+   - confirmar edicao do fluxo como objeto nativo do Word;
+   - confirmar que fluxo/radar nao viraram imagem.
 
 4. Evoluir bookmark automatico:
    - somente depois de provar API oficial com WAFData.
 
 ## Proximos Passos Planejados
 
-### PR seguinte - Fluxo visual e radar de gaps
+### PR seguinte - Objetos nativos Word para fluxo e radar
 
 Objetivo:
 
 ```text
-Melhorar a apresentacao do fluxo e do radar sem quebrar editabilidade nem reintroduzir conteudo fixo.
+Gerar fluxo e radar como objetos nativos editaveis do Word sem quebrar o template limpo nem reintroduzir conteudo fixo.
 ```
 
 Escopo previsto:
 
-- melhorar `backend/report-model.js` para preparar dados visuais de fluxo;
-- melhorar `backend/scripts/create-clean-operational-template.js`;
-- gerar uma area visual de fluxo em tabela horizontal/editavel;
-- melhorar matriz/radar de gaps com leitura executiva;
+- manter `backend/report-model.js` como fonte estruturada de dados;
+- atualizar grafico Radar Office nativo existente no template a partir de `gap_radar`;
+- preencher fluxo em shapes/conectores Word editaveis existentes no template;
+- preencher mapa de software e mapa de processos em shapes/conectores Word editaveis existentes no template;
+- preencher mapa de gaps, riscos e roadmap em shapes/conectores Word editaveis existentes no template;
+- preencher detalhamento de fluxo em shapes/conectores Word editaveis existentes no template;
+- substituir secoes principais ainda tabeladas por mapas/fluxos/roadmap visuais editaveis;
+- manter tabelas apenas como detalhe/auditoria, nao como visual principal;
 - regenerar `backend/templates/assessment-operational-template.docx`;
 - validar abertura no Word;
+- validar edicao do grafico radar no Word;
+- validar edicao do fluxo no Word;
 - validar ausencia de termos herdados;
 - validar exportacao no Render apos merge.
 
@@ -403,7 +483,6 @@ Fora do escopo deste PR:
 
 - bookmark automatico;
 - troca de provedor IA;
-- grafico Office nativo complexo;
 - reuso direto dos shapes do DOCX XMOBOTS;
 - mudanca do link oficial.
 

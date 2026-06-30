@@ -90,6 +90,137 @@ function buildFlowVisuals(flows) {
   }];
 }
 
+function buildNativeFlowPlaceholders(flows) {
+  const visuals = buildFlowVisuals(flows).slice(0, 2);
+  const result = {};
+
+  for (let flowIndex = 0; flowIndex < 2; flowIndex += 1) {
+    const flow = visuals[flowIndex] || {};
+    result[`flow_shape_${flowIndex + 1}_title`] = `${safeText(flow.flow_type, 'Pendente')} - ${safeText(flow.flow_name, 'Fluxo nao evidenciado')}`;
+
+    for (let stepIndex = 0; stepIndex < 6; stepIndex += 1) {
+      result[`flow_shape_${flowIndex + 1}_step_${stepIndex + 1}`] = safeText(
+        flow[`step_${stepIndex + 1}`],
+        'Etapa nao evidenciada'
+      );
+    }
+  }
+
+  return result;
+}
+
+function buildNativeFlowDetailPlaceholders(flows) {
+  const steps = flattenFlowSteps(flows).slice(0, 8);
+  const result = {};
+
+  for (let index = 0; index < 8; index += 1) {
+    const step = steps[index] || {};
+    result[`flow_detail_shape_${index + 1}_title`] = truncateText([
+      safeText(step.order, ''),
+      safeText(step.flow_name, '')
+    ].filter(Boolean).join(' - '), 34);
+    result[`flow_detail_shape_${index + 1}_body`] = truncateText([
+      safeText(step.input, ''),
+      safeText(step.activity, ''),
+      safeText(step.output, ''),
+      safeText(step.system, ''),
+      safeText(step.responsible, '')
+    ].filter(Boolean).join(' | '), 120);
+  }
+
+  return result;
+}
+
+function truncateText(value, maxLength = 80) {
+  const text = safeText(value, '').replace(/\s+/g, ' ').trim();
+  if (!text) return '-';
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
+}
+
+function buildNativeSoftwarePlaceholders(softwareMap) {
+  const systems = compactArray(softwareMap).slice(0, 8);
+  const result = {};
+
+  for (let index = 0; index < 8; index += 1) {
+    const item = systems[index] || {};
+    result[`software_shape_${index + 1}_title`] = truncateText(item.software || item.area || `Sistema ${index + 1}`, 42);
+    result[`software_shape_${index + 1}_body`] = truncateText([
+      safeText(item.area, ''),
+      safeText(item.usage, ''),
+      safeText(item.pain_points, '')
+    ].filter(Boolean).join(' | '), 95);
+  }
+
+  return result;
+}
+
+function buildNativeProcessPlaceholders(processMap) {
+  const processes = compactArray(processMap).slice(0, 6);
+  const result = {};
+
+  for (let index = 0; index < 6; index += 1) {
+    const item = processes[index] || {};
+    result[`process_shape_${index + 1}_title`] = truncateText(item.name || `Processo ${index + 1}`, 44);
+    result[`process_shape_${index + 1}_body`] = truncateText([
+      safeText(item.owner_area, ''),
+      safeText(item.systems, ''),
+      safeText(item.pain_points, '')
+    ].filter(Boolean).join(' | '), 95);
+  }
+
+  return result;
+}
+
+function buildNativeGapPlaceholders(gapMap) {
+  const gaps = compactArray(gapMap).slice(0, 6);
+  const result = {};
+
+  for (let index = 0; index < 6; index += 1) {
+    const item = gaps[index] || {};
+    result[`gap_shape_${index + 1}_title`] = truncateText(item.category || item.id || `Gap ${index + 1}`, 38);
+    result[`gap_shape_${index + 1}_body`] = truncateText([
+      safeText(item.description, ''),
+      safeText(item.impact, ''),
+      safeText(item.recommendation, '')
+    ].filter(Boolean).join(' | '), 105);
+  }
+
+  return result;
+}
+
+function buildNativeRiskPlaceholders(risks) {
+  const riskItems = compactArray(risks).slice(0, 5);
+  const result = {};
+
+  for (let index = 0; index < 5; index += 1) {
+    const item = riskItems[index] || {};
+    result[`risk_shape_${index + 1}_title`] = truncateText(item.impact || item.probability || `Risco ${index + 1}`, 34);
+    result[`risk_shape_${index + 1}_body`] = truncateText([
+      safeText(item.description, ''),
+      safeText(item.mitigation, '')
+    ].filter(Boolean).join(' | '), 105);
+  }
+
+  return result;
+}
+
+function buildNativeRoadmapPlaceholders(roadmap) {
+  const items = compactArray(roadmap).slice(0, 5);
+  const result = {};
+
+  for (let index = 0; index < 5; index += 1) {
+    const item = items[index] || {};
+    result[`roadmap_shape_${index + 1}_title`] = truncateText(item.phase || `Onda ${index + 1}`, 32);
+    result[`roadmap_shape_${index + 1}_body`] = truncateText([
+      safeText(item.title, ''),
+      safeText(item.description, ''),
+      safeText(item.dependencies, '')
+    ].filter(Boolean).join(' | '), 110);
+  }
+
+  return result;
+}
+
 function radarRiskLevel(score) {
   if (score >= 4) return 'Critico';
   if (score >= 3) return 'Alto';
@@ -149,11 +280,156 @@ function buildRadarSummary(gapRadar) {
   return `Media geral ${average.toFixed(1)}/5. ${priorityText}`;
 }
 
+function reportSectionNarrative(reportModel, sectionId) {
+  const section = compactArray(reportModel.section_narratives).find((item) => (
+    safeText(item.section_id, '').toLowerCase() === String(sectionId || '').toLowerCase()
+  ));
+
+  return section ? safeText(section.narrative, '') : '';
+}
+
+function reportSoftwareMap(reportModel, fallback) {
+  const nodes = compactArray(reportModel.software_network && reportModel.software_network.nodes);
+  if (!nodes.length) return compactArray(fallback);
+
+  return nodes.map((node) => ({
+    area: safeText(node.type, 'Sistema'),
+    software: safeText(node.label || node.id, 'Sistema nao nomeado'),
+    usage: safeText(node.description, 'Uso nao evidenciado no rascunho importado.'),
+    pain_points: [],
+    opportunities: [],
+    evidence: safeText(node.evidence_refs),
+    confidence: 'Media'
+  }));
+}
+
+function reportProcessMap(reportModel, fallback) {
+  const flows = compactArray(reportModel.process_flows);
+  if (!flows.length) return compactArray(fallback);
+
+  return flows.map((flow) => ({
+    name: safeText(flow.title || flow.id, 'Processo nao nomeado'),
+    owner_area: safeText(compactArray(flow.steps).map((step) => step.responsible).filter(Boolean), 'Nao evidenciado'),
+    systems: compactArray(flow.steps).map((step) => step.system).filter(Boolean),
+    pain_points: [safeText(flow.narrative, '')].filter(Boolean),
+    evidence: safeText(flow.evidence_refs),
+    confidence: safeText(flow.confidence, 'Media')
+  }));
+}
+
+function reportGapMap(reportModel, fallback) {
+  const gaps = compactArray(reportModel.gap_analysis);
+  if (!gaps.length) return compactArray(fallback);
+
+  return gaps.map((gap) => ({
+    id: safeText(gap.gap_id),
+    description: safeText(gap.title || gap.analysis, 'Gap nao nomeado'),
+    category: safeText(gap.title || gap.gap_id, 'Gap'),
+    impact: safeText(gap.impact),
+    classification: 'Hipotese IA revisavel',
+    recommendation: safeText(gap.recommendation),
+    evidence: safeText(gap.evidence_refs),
+    status: safeText(gap.confidence, 'Media')
+  }));
+}
+
+function reportRiskMap(reportModel, fallback) {
+  const risks = compactArray(reportModel.risk_map);
+  if (!risks.length) return compactArray(fallback);
+
+  return risks.map((risk) => ({
+    description: safeText(risk.title || risk.description, 'Risco nao nomeado'),
+    probability: safeText(risk.confidence, 'Media'),
+    impact: safeText(risk.description),
+    mitigation: safeText(risk.mitigation),
+    evidence: safeText(risk.evidence_refs)
+  }));
+}
+
+function reportFlows(reportModel, fallback) {
+  const flows = compactArray(reportModel.process_flows);
+  if (!flows.length) return compactArray(fallback);
+
+  return flows.map((flow) => ({
+    type: safeText(flow.type, 'AS-IS'),
+    name: safeText(flow.title || flow.id, 'Fluxo nao nomeado'),
+    evidence: safeText(flow.evidence_refs),
+    confidence: safeText(flow.confidence, 'Media'),
+    issues: [safeText(flow.narrative, '')].filter(Boolean),
+    steps: compactArray(flow.steps).map((step) => ({
+      order: step.order,
+      input: safeText(step.detail, ''),
+      activity: safeText(step.label || step.detail, 'Etapa nao nomeada'),
+      responsible: safeText(step.responsible, ''),
+      output: safeText(step.detail, ''),
+      system: safeText(step.system, ''),
+      area: safeText(step.responsible, ''),
+      issue: safeText(step.detail, '')
+    }))
+  }));
+}
+
+function reportRadar(reportModel, fallback) {
+  const radar = compactArray(reportModel.maturity_radar);
+  if (!radar.length) return compactArray(fallback);
+
+  return radar.map((item) => ({
+    category: safeText(item.category),
+    score: item.score,
+    source_gaps: compactArray(item.evidence_refs),
+    justification: safeText(item.justification),
+    target: item.target
+  }));
+}
+
+function reportRecommendations(reportModel, fallback) {
+  const recommendations = compactArray(reportModel.recommendation_logic);
+  if (!recommendations.length) return compactArray(fallback);
+
+  return recommendations.map((item) => ({
+    title: safeText(item.title || item.recommendation_id, 'Recomendacao nao nomeada'),
+    description: safeText([item.rationale, item.expected_outcome].filter(Boolean)),
+    priority: 'Media',
+    effort: 'Nao avaliado',
+    related_gaps: compactArray(item.related_gaps),
+    status: safeText(item.evidence_refs)
+  }));
+}
+
+function reportRoadmap(reportModel, fallback) {
+  const waves = compactArray(reportModel.roadmap_waves);
+  if (!waves.length) return compactArray(fallback);
+
+  return waves.map((wave) => ({
+    phase: safeText(wave.wave_id),
+    title: safeText(wave.title, 'Onda nao nomeada'),
+    description: safeText([wave.objective, safeText(wave.actions, '')].filter(Boolean)),
+    dependencies: compactArray(wave.dependencies),
+    related_recommendations: compactArray(wave.related_recommendations)
+  }));
+}
+
 function buildReportModel(assessment) {
   const source = assessment && typeof assessment === 'object' ? assessment : {};
   const client = source.client || {};
   const metadata = source.metadata || {};
   const executiveSummary = source.executive_summary || {};
+  const aiReportModel = source.report_model || {};
+  const softwareMap = reportSoftwareMap(aiReportModel, source.software_map);
+  const processMap = reportProcessMap(aiReportModel, source.process_map);
+  const gapMap = reportGapMap(aiReportModel, source.gap_map);
+  const riskMap = reportRiskMap(aiReportModel, source.risks);
+  const flows = reportFlows(aiReportModel, source.flows);
+  const radar = reportRadar(aiReportModel, source.gap_radar);
+  const recommendations = reportRecommendations(aiReportModel, source.recommendations);
+  const roadmap = reportRoadmap(aiReportModel, source.roadmap);
+  const nativeFlowPlaceholders = buildNativeFlowPlaceholders(flows);
+  const nativeFlowDetailPlaceholders = buildNativeFlowDetailPlaceholders(flows);
+  const nativeSoftwarePlaceholders = buildNativeSoftwarePlaceholders(softwareMap);
+  const nativeProcessPlaceholders = buildNativeProcessPlaceholders(processMap);
+  const nativeGapPlaceholders = buildNativeGapPlaceholders(gapMap);
+  const nativeRiskPlaceholders = buildNativeRiskPlaceholders(riskMap);
+  const nativeRoadmapPlaceholders = buildNativeRoadmapPlaceholders(roadmap);
 
   const cover = {
     title: 'Assessment de Engenharia',
@@ -163,7 +439,10 @@ function buildReportModel(assessment) {
     generated_at: safeText(metadata.updated_at || metadata.created_at, '')
   };
   const executive = {
-    current_state: safeText(executiveSummary.current_state, 'Nao evidenciado no rascunho importado.'),
+    current_state: safeText(
+      aiReportModel.executive_narrative || reportSectionNarrative(aiReportModel, 'executive_summary') || executiveSummary.current_state,
+      'Nao evidenciado no rascunho importado.'
+    ),
     main_pains: compactArray(executiveSummary.main_pains).map((pain) => safeText(pain)),
     overall_maturity: safeText(executiveSummary.overall_maturity, 'Nao avaliada'),
     evidence: safeText(executiveSummary.evidence, 'Nao evidenciado no rascunho importado.')
@@ -184,7 +463,12 @@ function buildReportModel(assessment) {
     executive: {
       ...executive
     },
-    systems: compactArray(source.software_map).map((item) => ({
+    ...nativeSoftwarePlaceholders,
+    ...nativeProcessPlaceholders,
+    ...nativeGapPlaceholders,
+    ...nativeRiskPlaceholders,
+    ...nativeRoadmapPlaceholders,
+    systems: compactArray(softwareMap).map((item) => ({
       area: safeText(item.area),
       software: safeText(item.software),
       usage: safeText(item.usage),
@@ -193,7 +477,7 @@ function buildReportModel(assessment) {
       evidence: safeText(item.evidence),
       confidence: safeText(item.confidence)
     })),
-    processes: compactArray(source.process_map).map((item) => ({
+    processes: compactArray(processMap).map((item) => ({
       name: safeText(item.name),
       owner_area: safeText(item.owner_area),
       systems_text: safeText(item.systems),
@@ -201,7 +485,7 @@ function buildReportModel(assessment) {
       evidence: safeText(item.evidence),
       confidence: safeText(item.confidence)
     })),
-    gaps: compactArray(source.gap_map).map((item) => ({
+    gaps: compactArray(gapMap).map((item) => ({
       description: safeText(item.description),
       category: safeText(item.category),
       impact: safeText(item.impact),
@@ -209,25 +493,29 @@ function buildReportModel(assessment) {
       evidence: safeText(item.evidence),
       status: safeText(item.status)
     })),
-    gap_radar_summary: buildRadarSummary(source.gap_radar),
-    gap_radar: buildRadarRows(source.gap_radar),
-    flow_visuals: buildFlowVisuals(source.flows),
-    flow_steps: flattenFlowSteps(source.flows),
-    risks: compactArray(source.risks).map((item) => ({
+    gap_radar_summary: buildRadarSummary(radar),
+    native_gap_radar_chart: '__NATIVE_GAP_RADAR_CHART__',
+    gap_radar: buildRadarRows(radar),
+    native_flow_diagrams: '__NATIVE_FLOW_DIAGRAMS__',
+    ...nativeFlowPlaceholders,
+    ...nativeFlowDetailPlaceholders,
+    flow_visuals: buildFlowVisuals(flows),
+    flow_steps: flattenFlowSteps(flows),
+    risks: compactArray(riskMap).map((item) => ({
       description: safeText(item.description),
       probability: safeText(item.probability),
       impact: safeText(item.impact),
       mitigation: safeText(item.mitigation),
       evidence: safeText(item.evidence)
     })),
-    recommendations: compactArray(source.recommendations).map((item) => ({
+    recommendations: compactArray(recommendations).map((item) => ({
       title: safeText(item.title),
       description: safeText(item.description),
       priority: safeText(item.priority),
       effort: safeText(item.effort),
       status: safeText(item.status)
     })),
-    roadmap: compactArray(source.roadmap).map((item) => ({
+    roadmap: compactArray(roadmap).map((item) => ({
       phase: safeText(item.phase),
       title: safeText(item.title),
       description: safeText(item.description),

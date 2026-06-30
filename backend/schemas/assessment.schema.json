@@ -139,6 +139,8 @@
       "type": "array",
       "items": { "$ref": "#/$defs/roadmapItem" }
     },
+    "report_model": { "$ref": "#/$defs/reportModel" },
+    "quality_review": { "$ref": "#/$defs/qualityReview" },
     "open_questions": {
       "type": "array",
       "items": { "$ref": "#/$defs/openQuestionItem" }
@@ -167,6 +169,10 @@
     "reviewState": {
       "type": "string",
       "enum": ["Pendente", "Revisado", "Aprovado", "Rejeitado", "Regenerar"]
+    },
+    "impactLevel": {
+      "type": "string",
+      "enum": ["Baixo", "MÃ©dio", "Alto", "CrÃ­tico", "NÃ£o avaliado"]
     },
     "inputSource": {
       "type": "object",
@@ -345,6 +351,258 @@
         "description": { "type": ["string", "null"] },
         "dependencies": { "type": "array", "items": { "type": "string" } },
         "related_recommendations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executive_narrative",
+        "section_narratives",
+        "software_network",
+        "process_flows",
+        "gap_analysis",
+        "risk_map",
+        "maturity_radar",
+        "recommendation_logic",
+        "roadmap_waves",
+        "open_questions",
+        "quality_notes"
+      ],
+      "properties": {
+        "executive_narrative": { "type": ["string", "null"] },
+        "section_narratives": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportSectionNarrative" }
+        },
+        "software_network": { "$ref": "#/$defs/reportNetwork" },
+        "process_flows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportFlow" }
+        },
+        "gap_analysis": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportGapAnalysis" }
+        },
+        "risk_map": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportRisk" }
+        },
+        "maturity_radar": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportRadarItem" }
+        },
+        "recommendation_logic": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportRecommendationLogic" }
+        },
+        "roadmap_waves": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportRoadmapWave" }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportOpenQuestion" }
+        },
+        "quality_notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportSectionNarrative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["section_id", "title", "narrative", "evidence_refs", "confidence"],
+      "properties": {
+        "section_id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "narrative": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "reportNetwork": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "links", "narrative"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportNode" }
+        },
+        "links": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportLink" }
+        },
+        "narrative": { "type": ["string", "null"] }
+      }
+    },
+    "reportNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type", "description", "evidence_refs"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": ["string", "null"] },
+        "type": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target", "label", "type", "evidence_refs"],
+      "properties": {
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "label": { "type": ["string", "null"] },
+        "type": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportFlow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "type", "narrative", "steps", "evidence_refs", "confidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "type": { "type": "string", "enum": ["AS-IS", "TO-BE"] },
+        "narrative": { "type": ["string", "null"] },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportFlowStep" }
+        },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "reportFlowStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "label", "detail", "system", "responsible", "evidence_refs"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 1 },
+        "label": { "type": ["string", "null"] },
+        "detail": { "type": ["string", "null"] },
+        "system": { "type": ["string", "null"] },
+        "responsible": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportGapAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_id", "title", "analysis", "impact", "recommendation", "evidence_refs", "confidence"],
+      "properties": {
+        "gap_id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "analysis": { "type": ["string", "null"] },
+        "impact": { "$ref": "#/$defs/impactLevel" },
+        "recommendation": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "reportRisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk_id", "title", "description", "mitigation", "evidence_refs", "confidence"],
+      "properties": {
+        "risk_id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "mitigation": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "reportRadarItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "score", "target", "justification", "evidence_refs"],
+      "properties": {
+        "category": { "type": "string" },
+        "score": { "type": "number", "minimum": 0, "maximum": 5 },
+        "target": { "type": "number", "minimum": 0, "maximum": 5 },
+        "justification": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportRecommendationLogic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommendation_id", "title", "rationale", "related_gaps", "expected_outcome", "evidence_refs"],
+      "properties": {
+        "recommendation_id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "rationale": { "type": ["string", "null"] },
+        "related_gaps": { "type": "array", "items": { "type": "string" } },
+        "expected_outcome": { "type": ["string", "null"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportRoadmapWave": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wave_id", "title", "objective", "actions", "dependencies", "related_recommendations"],
+      "properties": {
+        "wave_id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "objective": { "type": ["string", "null"] },
+        "actions": { "type": "array", "items": { "type": "string" } },
+        "dependencies": { "type": "array", "items": { "type": "string" } },
+        "related_recommendations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportOpenQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "reason", "target_area"],
+      "properties": {
+        "question": { "type": "string" },
+        "reason": { "type": ["string", "null"] },
+        "target_area": { "type": ["string", "null"] }
+      }
+    },
+    "qualityReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "readiness",
+        "score",
+        "summary",
+        "blocking_issues",
+        "warnings",
+        "evidence_gaps",
+        "generic_content_risk",
+        "required_human_review"
+      ],
+      "properties": {
+        "readiness": { "type": "string", "enum": ["blocked", "draft", "review_ready"] },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "summary": { "type": ["string", "null"] },
+        "blocking_issues": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualityIssue" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualityIssue" }
+        },
+        "evidence_gaps": { "type": "array", "items": { "type": "string" } },
+        "generic_content_risk": { "type": "string", "enum": ["Baixo", "MÃ©dio", "Alto", "NÃ£o avaliado"] },
+        "required_human_review": { "type": "boolean" }
+      }
+    },
+    "qualityIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "severity", "related_section"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": { "type": "string", "enum": ["info", "warning", "blocking"] },
+        "related_section": { "type": ["string", "null"] }
       }
     },
     "openQuestionItem": {

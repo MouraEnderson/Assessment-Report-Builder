@@ -286,12 +286,22 @@ function systemsSection() {
   return [
     ...section('02', 'Sistemas e processos', 'Mapa editavel dos sistemas, processos, dores e evidencias extraidas.'),
     paragraph('Sistemas identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de software/sistemas.
+    paragraph('{native_software_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Area', 'Sistema', 'Uso', 'Dores', 'Oportunidades', 'Evidencia', 'Confianca'],
       'systems',
       ['area', 'software', 'usage', 'pain_points_text', 'opportunities_text', 'evidence', 'confidence']
     ),
     paragraph('Processos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de processos.
+    paragraph('{native_process_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Processo', 'Area', 'Sistemas', 'Dores', 'Evidencia', 'Confianca'],
       'processes',
@@ -305,6 +315,11 @@ function gapSection() {
   return [
     ...section('03', 'Gaps, riscos e maturidade', 'Classificacao de gaps e matriz de maturidade editavel no Word.'),
     paragraph('Mapa de gaps', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de gaps.
+    paragraph('{native_gap_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Gap', 'Categoria', 'Impacto', 'Recomendacao', 'Evidencia', 'Status'],
       'gaps',
@@ -312,6 +327,11 @@ function gapSection() {
     ),
     paragraph('Radar de gaps editavel', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
     callout('Leitura executiva do radar', '{gap_radar_summary}', COLORS.amber),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por um grafico Radar nativo via Word.
+    paragraph('{native_gap_radar_chart}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Categoria', '0', '1', '2', '3', '4', '5', 'Score', 'Nivel', 'Gaps fonte'],
       'gap_radar',
@@ -319,6 +339,11 @@ function gapSection() {
       { headerFill: COLORS.blue }
     ),
     paragraph('Riscos identificados', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por mapa visual de riscos.
+    paragraph('{native_risk_map}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Risco', 'Probabilidade', 'Impacto', 'Mitigacao', 'Evidencia'],
       'risks',
@@ -333,6 +358,11 @@ function flowSection() {
   return [
     ...section('04', 'Fluxos AS-IS e TO-BE', 'Fluxos reconstruidos como matriz editavel para revisao e ajuste.'),
     paragraph('Fluxo visual resumido', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por shapes/conectores nativos do Word.
+    paragraph('{native_flow_diagrams}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Fluxo', 'Tipo', 'Etapa 1', 'Etapa 2', 'Etapa 3', 'Etapa 4', 'Etapa 5', 'Etapa 6', 'Observacao'],
       'flow_visuals',
@@ -340,6 +370,11 @@ function flowSection() {
       { headerFill: COLORS.blue, bodySize: 14 }
     ),
     paragraph('Detalhamento do fluxo', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por fluxo detalhado visual.
+    paragraph('{native_flow_detail}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Fluxo', 'Tipo', 'Ordem', 'Entrada', 'Atividade', 'Responsavel', 'Saida', 'Sistema', 'Area', 'Ponto de atencao'],
       'flow_steps',
@@ -360,6 +395,11 @@ function roadmapSection() {
       ['title', 'description', 'priority', 'effort', 'status']
     ),
     paragraph('Roadmap', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por linha do tempo visual.
+    paragraph('{native_roadmap}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Fase', 'Titulo', 'Descricao', 'Dependencias'],
       'roadmap',

@@ -111,12 +111,87 @@ function normalizeValidationErrors(errors = []) {
   }));
 }
 
+function assessmentQualityWarnings(assessment) {
+  const review = assessment && assessment.quality_review && typeof assessment.quality_review === 'object'
+    ? assessment.quality_review
+    : null;
+  const warnings = [];
+
+  if (!review) {
+    warnings.push({
+      code: 'QUALITY_REVIEW_MISSING',
+      message: 'quality_review ausente; execute IA V2 ou revise manualmente antes de envio oficial.',
+      severity: 'warning',
+      related_section: 'quality_review'
+    });
+    return warnings;
+  }
+
+  if (review.readiness === 'draft') {
+    warnings.push({
+      code: 'QUALITY_REVIEW_DRAFT',
+      message: review.summary || 'Assessment marcado como rascunho; exige revisao humana.',
+      severity: 'warning',
+      related_section: 'quality_review'
+    });
+  }
+
+  if (review.generic_content_risk === 'Alto') {
+    warnings.push({
+      code: 'GENERIC_CONTENT_RISK_HIGH',
+      message: 'Risco alto de conteudo generico no assessment.',
+      severity: 'warning',
+      related_section: 'quality_review'
+    });
+  }
+
+  (Array.isArray(review.warnings) ? review.warnings : []).forEach((item) => {
+    warnings.push({
+      code: safeText(item.code, 'QUALITY_WARNING'),
+      message: safeText(item.message, 'Ponto de qualidade pendente de revisao.'),
+      severity: safeText(item.severity, 'warning'),
+      related_section: item.related_section || null
+    });
+  });
+
+  return warnings;
+}
+
+function assessmentQualityBlockingIssues(assessment) {
+  const review = assessment && assessment.quality_review && typeof assessment.quality_review === 'object'
+    ? assessment.quality_review
+    : null;
+  const issues = [];
+
+  if (!review) return issues;
+
+  if (review.readiness === 'blocked') {
+    issues.push({
+      code: 'QUALITY_REVIEW_BLOCKED',
+      message: review.summary || 'Assessment bloqueado pela revisao de qualidade.',
+      severity: 'blocking',
+      related_section: 'quality_review'
+    });
+  }
+
+  (Array.isArray(review.blocking_issues) ? review.blocking_issues : []).forEach((item) => {
+    issues.push({
+      code: safeText(item.code, 'QUALITY_BLOCKING_ISSUE'),
+      message: safeText(item.message, 'Bloqueio de qualidade pendente de revisao.'),
+      severity: 'blocking',
+      related_section: item.related_section || null
+    });
+  });
+
+  return issues;
+}
+
 function validateAssessment(assessment) {
   const valid = validateSchema(assessment);
   return {
     valid: Boolean(valid),
     errors: valid ? [] : normalizeValidationErrors(validateSchema.errors),
-    warnings: []
+    warnings: assessmentQualityWarnings(assessment)
   };
 }
 
@@ -819,6 +894,21 @@ function createAssessmentDraft(input) {
     risks: [],
     recommendations: [],
     roadmap: [],
+    report_model: normalizeReportModel({}),
+    quality_review: normalizeQualityReview({
+      readiness: 'draft',
+      score: 0,
+      summary: 'Contrato IA V2 inicial criado sem analise consultiva automatica.',
+      warnings: [{
+        code: 'AI_V2_NOT_GENERATED',
+        message: 'Report model consultivo ainda nao foi gerado.',
+        severity: 'warning',
+        related_section: 'report_model'
+      }],
+      evidence_gaps: ['Executar Prompt V2 para gerar analise consultiva baseada em evidencia.'],
+      generic_content_risk: 'NÃ£o avaliado',
+      required_human_review: true
+    }),
     open_questions: [],
     appendix: {
       transcript_processing_status: 'received',
@@ -880,6 +970,88 @@ function buildAssessmentPrompt(input) {
   ].join('\n');
 }
 
+function buildAssessmentPromptV2(input) {
+  const client = input.client && typeof input.client === 'object' ? input.client : {};
+  const transcriptText = normalizeExtractedText(input.transcript_text).slice(0, maxAiInputCharacters);
+
+  return [
+    'Voce e um consultor senior de PLM, engenharia de produto, processos, sistemas, integracoes e 3DEXPERIENCE.',
+    'Prompt: IA V2 consultiva.',
+    'Sua tarefa e transformar o conteudo de um assessment em um assessment.json estritamente valido e consultivo.',
+    'Nao seja apenas um parser: gere diagnostico, narrativa, relacoes, fluxos, roadmap e revisao de qualidade quando houver evidencia.',
+    '',
+    'Regras obrigatorias:',
+    '- Responda somente com JSON valido, sem markdown e sem explicacoes fora do JSON.',
+    '- Use exatamente o contrato descrito abaixo; nao adicione propriedades fora do schema.',
+    '- Nao invente fatos. Quando inferir algo, registre como hipotese ou confianca menor.',
+    '- O documento importado e a unica fonte de verdade. Nao reutilize narrativa, tecnologias, fluxos, produtos ou nomes de clientes de exemplos anteriores.',
+    '- Nao inclua termos tecnicos especificos, softwares, produtos, siglas ou processos que nao aparecam no conteudo importado, exceto como pergunta aberta.',
+    '- Cada item em software_map, process_map, gap_map, flows e risks deve ter evidence baseado em trecho ou sintese fiel do documento importado.',
+    '- Se o rascunho for generico ou incompleto, gere menos itens com maior fidelidade em vez de preencher listas com suposicoes.',
+    '- Separe fatos observados de hipoteses: use classification=Fato somente quando houver evidencia clara; caso contrario use Hipotese ou Pendencia.',
+    '- Toda recomendacao deve estar ligada a evidencia, gap ou risco quando possivel.',
+    '- Se faltar informacao, use null, arrays vazios ou open_questions.',
+    '- Todos os textos devem ficar em portugues do Brasil.',
+    '- O campo review_status deve iniciar como Pendente.',
+    '- Preencha report_model sempre que o conteudo permitir; ele deve orientar o relatorio final, nao repetir apenas listas.',
+    '- Preencha quality_review avaliando se o resultado esta pronto, fraco, generico ou bloqueado por falta de evidencia.',
+    '- Se o rascunho nao sustentar um relatorio confiavel, defina quality_review.readiness como blocked ou draft e explique o motivo.',
+    '',
+    'Enums importantes:',
+    '- confidence: Baixa, Media, Alta, Nao avaliada.',
+    '- reviewState: Pendente, Revisado, Aprovado, Rejeitado, Regenerar.',
+    '- gap classification: Fato, Hipotese, Pendencia.',
+    '- flow type: AS-IS ou TO-BE.',
+    '- quality readiness: blocked, draft, review_ready.',
+    '- quality severity: info, warning, blocking.',
+    '',
+    'Tarefas consultivas obrigatorias:',
+    '1. Extracao fiel: identifique cliente, contexto, sistemas, processos, dores, riscos, evidencias e lacunas.',
+    '2. Diagnostico: conecte sistemas, processos, gaps e riscos; diferencie causa, sintoma e impacto.',
+    '3. Mapas: gere software_network com nodes e links quando houver troca de dados, handoff, integracao, decisao manual ou controle paralelo.',
+    '4. Fluxos: gere process_flows com passos AS-IS e, quando sustentado, TO-BE; cada passo deve ter ordem, rotulo, detalhe, sistema e responsavel quando evidenciados.',
+    '5. Gaps: gere gap_analysis explicando impacto e recomendacao conectada ao gap.',
+    '6. Radar: gere maturity_radar com score, target e justificativa por categoria.',
+    '7. Roadmap: gere roadmap_waves conectadas a recomendacoes, dependencias e resultados esperados.',
+    '8. Perguntas abertas: quando faltar informacao, gere perguntas objetivas para validacao humana.',
+    '9. Qualidade: gere quality_review com score de 0 a 100, warnings, blocking_issues e evidence_gaps.',
+    '',
+    'Regras para report_model:',
+    '- executive_narrative deve ser texto executivo pronto para relatorio, baseado no documento importado.',
+    '- section_narratives deve conter narrativas por secao, com evidence_refs e confidence.',
+    '- software_network.nodes deve representar sistemas, areas, repositorios ou controles citados.',
+    '- software_network.links deve representar relacoes entre nodes; nao crie link se nao houver evidencia ou hipotese declarada.',
+    '- process_flows deve complementar flows; use narrativa e passos prontos para desenho no Word.',
+    '- recommendation_logic deve explicar por que cada recomendacao existe e qual resultado esperado.',
+    '- quality_notes deve listar observacoes tecnicas uteis para revisao humana.',
+    '',
+    'Regras para quality_review:',
+    '- readiness=review_ready somente quando houver evidencia suficiente para resumo, gaps, fluxos/relacoes e roadmap.',
+    '- readiness=draft quando o resultado e util mas ainda exige validacao humana relevante.',
+    '- readiness=blocked quando falta informacao essencial ou o texto importado e generico demais.',
+    '- generic_content_risk deve ser Alto se o relatorio parecer generico ou aplicavel a qualquer cliente.',
+    '- blocking_issues deve listar problemas que impedem exportacao confiavel.',
+    '- warnings deve listar fragilidades que nao bloqueiam, mas exigem atencao.',
+    '- evidence_gaps deve listar exatamente quais evidencias faltaram.',
+    '',
+    'Cliente informado:',
+    JSON.stringify({
+      name: normalizeOptionalString(client.name),
+      business_area: normalizeOptionalString(client.business_area),
+      assessment_type: input.assessment_type || 'plm_assessment',
+      generation_mode: input.generation_mode || 'consultivo',
+      transcript_source: input.transcript_source || { type: 'local_upload' },
+      template_source: input.template_source || { type: 'not_selected' }
+    }, null, 2),
+    '',
+    'Schema JSON oficial:',
+    JSON.stringify(assessmentSchema),
+    '',
+    'Conteudo importado do assessment:',
+    transcriptText
+  ].join('\n');
+}
+
 function normalizeAccentless(value) {
   return String(value || '')
     .normalize('NFD')
@@ -934,9 +1106,19 @@ function objectArray(value) {
   return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)) : [];
 }
 
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
 function positiveInteger(value, fallback) {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function boundedInteger(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(number)));
 }
 
 function boundedScore(value) {
@@ -981,6 +1163,142 @@ function normalizeFlowType(value) {
 
 function normalizeOpenQuestionStatus(value) {
   return normalizeEnum(value, ['Aberta', 'Respondida', 'Descartada'], 'Aberta');
+}
+
+function normalizeQualityReadiness(value) {
+  return normalizeEnum(value, ['blocked', 'draft', 'review_ready'], 'draft');
+}
+
+function normalizeQualitySeverity(value) {
+  return normalizeEnum(value, ['info', 'warning', 'blocking'], 'warning');
+}
+
+function normalizeGenericContentRisk(value) {
+  return normalizeEnum(value, ['Baixo', 'MÃ©dio', 'Alto', 'NÃ£o avaliado'], 'NÃ£o avaliado');
+}
+
+function normalizeReportModel(rawReportModel) {
+  const model = plainObject(rawReportModel);
+  const softwareNetwork = plainObject(model.software_network);
+
+  return {
+    executive_narrative: nullableText(model.executive_narrative),
+    section_narratives: objectArray(model.section_narratives).map((item, index) => ({
+      section_id: requiredText(item.section_id, `section_${index + 1}`),
+      title: nullableText(item.title),
+      narrative: nullableText(item.narrative),
+      evidence_refs: stringArray(item.evidence_refs),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    software_network: {
+      nodes: objectArray(softwareNetwork.nodes).map((item, index) => ({
+        id: requiredText(item.id, `node_${index + 1}`),
+        label: nullableText(item.label),
+        type: nullableText(item.type),
+        description: nullableText(item.description),
+        evidence_refs: stringArray(item.evidence_refs)
+      })),
+      links: objectArray(softwareNetwork.links).map((item, index) => ({
+        source: requiredText(item.source, `source_${index + 1}`),
+        target: requiredText(item.target, `target_${index + 1}`),
+        label: nullableText(item.label),
+        type: nullableText(item.type),
+        evidence_refs: stringArray(item.evidence_refs)
+      })),
+      narrative: nullableText(softwareNetwork.narrative)
+    },
+    process_flows: objectArray(model.process_flows).map((flow, flowIndex) => ({
+      id: requiredText(flow.id, `report_flow_${flowIndex + 1}`),
+      title: nullableText(flow.title),
+      type: normalizeFlowType(flow.type),
+      narrative: nullableText(flow.narrative),
+      steps: objectArray(flow.steps).map((step, stepIndex) => ({
+        order: positiveInteger(step.order, stepIndex + 1),
+        label: nullableText(step.label),
+        detail: nullableText(step.detail),
+        system: nullableText(step.system),
+        responsible: nullableText(step.responsible),
+        evidence_refs: stringArray(step.evidence_refs)
+      })),
+      evidence_refs: stringArray(flow.evidence_refs),
+      confidence: normalizeConfidence(flow.confidence)
+    })),
+    gap_analysis: objectArray(model.gap_analysis).map((item, index) => ({
+      gap_id: requiredText(item.gap_id, `gap_${index + 1}`),
+      title: nullableText(item.title),
+      analysis: nullableText(item.analysis),
+      impact: normalizeImpact(item.impact),
+      recommendation: nullableText(item.recommendation),
+      evidence_refs: stringArray(item.evidence_refs),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    risk_map: objectArray(model.risk_map).map((item, index) => ({
+      risk_id: requiredText(item.risk_id, `risk_${index + 1}`),
+      title: nullableText(item.title),
+      description: nullableText(item.description),
+      mitigation: nullableText(item.mitigation),
+      evidence_refs: stringArray(item.evidence_refs),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    maturity_radar: objectArray(model.maturity_radar).map((item, index) => ({
+      category: requiredText(item.category, `Categoria ${index + 1}`),
+      score: boundedScore(item.score),
+      target: boundedScore(item.target == null ? 5 : item.target),
+      justification: nullableText(item.justification),
+      evidence_refs: stringArray(item.evidence_refs)
+    })),
+    recommendation_logic: objectArray(model.recommendation_logic).map((item, index) => ({
+      recommendation_id: requiredText(item.recommendation_id, `recommendation_${index + 1}`),
+      title: nullableText(item.title),
+      rationale: nullableText(item.rationale),
+      related_gaps: stringArray(item.related_gaps),
+      expected_outcome: nullableText(item.expected_outcome),
+      evidence_refs: stringArray(item.evidence_refs)
+    })),
+    roadmap_waves: objectArray(model.roadmap_waves).map((item, index) => ({
+      wave_id: requiredText(item.wave_id, `wave_${index + 1}`),
+      title: nullableText(item.title),
+      objective: nullableText(item.objective),
+      actions: stringArray(item.actions),
+      dependencies: stringArray(item.dependencies),
+      related_recommendations: stringArray(item.related_recommendations)
+    })),
+    open_questions: objectArray(model.open_questions).map((item) => ({
+      question: requiredText(item.question, 'Pergunta pendente de detalhamento.'),
+      reason: nullableText(item.reason),
+      target_area: nullableText(item.target_area)
+    })),
+    quality_notes: stringArray(model.quality_notes)
+  };
+}
+
+function normalizeQualityIssue(item, fallbackCode) {
+  const source = plainObject(item);
+  return {
+    code: requiredText(source.code, fallbackCode),
+    message: requiredText(source.message, 'Ponto de qualidade pendente de revisao.'),
+    severity: normalizeQualitySeverity(source.severity),
+    related_section: nullableText(source.related_section)
+  };
+}
+
+function normalizeQualityReview(rawQualityReview) {
+  const review = plainObject(rawQualityReview);
+
+  return {
+    readiness: normalizeQualityReadiness(review.readiness),
+    score: boundedInteger(review.score, 0, 0, 100),
+    summary: nullableText(review.summary),
+    blocking_issues: objectArray(review.blocking_issues).map((item, index) => (
+      normalizeQualityIssue(item, `blocking_${index + 1}`)
+    )),
+    warnings: objectArray(review.warnings).map((item, index) => (
+      normalizeQualityIssue(item, `warning_${index + 1}`)
+    )),
+    evidence_gaps: stringArray(review.evidence_gaps),
+    generic_content_risk: normalizeGenericContentRisk(review.generic_content_risk),
+    required_human_review: typeof review.required_human_review === 'boolean' ? review.required_human_review : true
+  };
 }
 
 function normalizeAiAssessment(rawAssessment, input) {
@@ -1108,6 +1426,8 @@ function normalizeAiAssessment(rawAssessment, input) {
       dependencies: stringArray(item.dependencies),
       related_recommendations: stringArray(item.related_recommendations)
     })),
+    report_model: normalizeReportModel(raw.report_model),
+    quality_review: normalizeQualityReview(raw.quality_review),
     open_questions: objectArray(raw.open_questions).map((item, index) => ({
       id: requiredText(item.id, `question_${index + 1}`),
       question: requiredText(item.question, 'Pergunta pendente de detalhamento.'),
@@ -1121,6 +1441,7 @@ function normalizeAiAssessment(rawAssessment, input) {
       ai_extraction_status: 'generated',
       ai_provider: 'gemini',
       ai_model: geminiModel,
+      ai_prompt_version: 'v2-consultative-report-model',
       ai_generated_at: now,
       schema_repair_status: 'normalized'
     },
@@ -1143,7 +1464,7 @@ async function createAssessmentWithGemini(input) {
       responseMimeType: 'application/json'
     }
   });
-  const result = await model.generateContent(buildAssessmentPrompt(input));
+  const result = await model.generateContent(buildAssessmentPromptV2(input));
   const response = result.response;
   const jsonText = response.text();
   return normalizeAiAssessment(extractJsonObject(jsonText), input);
@@ -1339,6 +1660,19 @@ app.post('/api/assessment/export-docx', async (req, res) => {
       error: 'ASSESSMENT_SCHEMA_INVALID',
       message: 'O assessment precisa estar válido no schema antes de gerar DOCX.',
       validation
+    });
+  }
+
+  const blockingIssues = assessmentQualityBlockingIssues(assessment);
+  if (blockingIssues.length) {
+    return res.status(422).json({
+      ok: false,
+      error: 'ASSESSMENT_QUALITY_BLOCKED',
+      message: 'O assessment foi bloqueado pela revisao de qualidade antes da exportacao DOCX.',
+      validation: {
+        ...validation,
+        blocking_issues: blockingIssues
+      }
     });
   }
 
