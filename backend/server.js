@@ -895,6 +895,88 @@ function buildAssessmentPrompt(input) {
   ].join('\n');
 }
 
+function buildAssessmentPromptV2(input) {
+  const client = input.client && typeof input.client === 'object' ? input.client : {};
+  const transcriptText = normalizeExtractedText(input.transcript_text).slice(0, maxAiInputCharacters);
+
+  return [
+    'Voce e um consultor senior de PLM, engenharia de produto, processos, sistemas, integracoes e 3DEXPERIENCE.',
+    'Prompt: IA V2 consultiva.',
+    'Sua tarefa e transformar o conteudo de um assessment em um assessment.json estritamente valido e consultivo.',
+    'Nao seja apenas um parser: gere diagnostico, narrativa, relacoes, fluxos, roadmap e revisao de qualidade quando houver evidencia.',
+    '',
+    'Regras obrigatorias:',
+    '- Responda somente com JSON valido, sem markdown e sem explicacoes fora do JSON.',
+    '- Use exatamente o contrato descrito abaixo; nao adicione propriedades fora do schema.',
+    '- Nao invente fatos. Quando inferir algo, registre como hipotese ou confianca menor.',
+    '- O documento importado e a unica fonte de verdade. Nao reutilize narrativa, tecnologias, fluxos, produtos ou nomes de clientes de exemplos anteriores.',
+    '- Nao inclua termos tecnicos especificos, softwares, produtos, siglas ou processos que nao aparecam no conteudo importado, exceto como pergunta aberta.',
+    '- Cada item em software_map, process_map, gap_map, flows e risks deve ter evidence baseado em trecho ou sintese fiel do documento importado.',
+    '- Se o rascunho for generico ou incompleto, gere menos itens com maior fidelidade em vez de preencher listas com suposicoes.',
+    '- Separe fatos observados de hipoteses: use classification=Fato somente quando houver evidencia clara; caso contrario use Hipotese ou Pendencia.',
+    '- Toda recomendacao deve estar ligada a evidencia, gap ou risco quando possivel.',
+    '- Se faltar informacao, use null, arrays vazios ou open_questions.',
+    '- Todos os textos devem ficar em portugues do Brasil.',
+    '- O campo review_status deve iniciar como Pendente.',
+    '- Preencha report_model sempre que o conteudo permitir; ele deve orientar o relatorio final, nao repetir apenas listas.',
+    '- Preencha quality_review avaliando se o resultado esta pronto, fraco, generico ou bloqueado por falta de evidencia.',
+    '- Se o rascunho nao sustentar um relatorio confiavel, defina quality_review.readiness como blocked ou draft e explique o motivo.',
+    '',
+    'Enums importantes:',
+    '- confidence: Baixa, Media, Alta, Nao avaliada.',
+    '- reviewState: Pendente, Revisado, Aprovado, Rejeitado, Regenerar.',
+    '- gap classification: Fato, Hipotese, Pendencia.',
+    '- flow type: AS-IS ou TO-BE.',
+    '- quality readiness: blocked, draft, review_ready.',
+    '- quality severity: info, warning, blocking.',
+    '',
+    'Tarefas consultivas obrigatorias:',
+    '1. Extracao fiel: identifique cliente, contexto, sistemas, processos, dores, riscos, evidencias e lacunas.',
+    '2. Diagnostico: conecte sistemas, processos, gaps e riscos; diferencie causa, sintoma e impacto.',
+    '3. Mapas: gere software_network com nodes e links quando houver troca de dados, handoff, integracao, decisao manual ou controle paralelo.',
+    '4. Fluxos: gere process_flows com passos AS-IS e, quando sustentado, TO-BE; cada passo deve ter ordem, rotulo, detalhe, sistema e responsavel quando evidenciados.',
+    '5. Gaps: gere gap_analysis explicando impacto e recomendacao conectada ao gap.',
+    '6. Radar: gere maturity_radar com score, target e justificativa por categoria.',
+    '7. Roadmap: gere roadmap_waves conectadas a recomendacoes, dependencias e resultados esperados.',
+    '8. Perguntas abertas: quando faltar informacao, gere perguntas objetivas para validacao humana.',
+    '9. Qualidade: gere quality_review com score de 0 a 100, warnings, blocking_issues e evidence_gaps.',
+    '',
+    'Regras para report_model:',
+    '- executive_narrative deve ser texto executivo pronto para relatorio, baseado no documento importado.',
+    '- section_narratives deve conter narrativas por secao, com evidence_refs e confidence.',
+    '- software_network.nodes deve representar sistemas, areas, repositorios ou controles citados.',
+    '- software_network.links deve representar relacoes entre nodes; nao crie link se nao houver evidencia ou hipotese declarada.',
+    '- process_flows deve complementar flows; use narrativa e passos prontos para desenho no Word.',
+    '- recommendation_logic deve explicar por que cada recomendacao existe e qual resultado esperado.',
+    '- quality_notes deve listar observacoes tecnicas uteis para revisao humana.',
+    '',
+    'Regras para quality_review:',
+    '- readiness=review_ready somente quando houver evidencia suficiente para resumo, gaps, fluxos/relacoes e roadmap.',
+    '- readiness=draft quando o resultado e util mas ainda exige validacao humana relevante.',
+    '- readiness=blocked quando falta informacao essencial ou o texto importado e generico demais.',
+    '- generic_content_risk deve ser Alto se o relatorio parecer generico ou aplicavel a qualquer cliente.',
+    '- blocking_issues deve listar problemas que impedem exportacao confiavel.',
+    '- warnings deve listar fragilidades que nao bloqueiam, mas exigem atencao.',
+    '- evidence_gaps deve listar exatamente quais evidencias faltaram.',
+    '',
+    'Cliente informado:',
+    JSON.stringify({
+      name: normalizeOptionalString(client.name),
+      business_area: normalizeOptionalString(client.business_area),
+      assessment_type: input.assessment_type || 'plm_assessment',
+      generation_mode: input.generation_mode || 'consultivo',
+      transcript_source: input.transcript_source || { type: 'local_upload' },
+      template_source: input.template_source || { type: 'not_selected' }
+    }, null, 2),
+    '',
+    'Schema JSON oficial:',
+    JSON.stringify(assessmentSchema),
+    '',
+    'Conteudo importado do assessment:',
+    transcriptText
+  ].join('\n');
+}
+
 function normalizeAccentless(value) {
   return String(value || '')
     .normalize('NFD')
@@ -1284,6 +1366,7 @@ function normalizeAiAssessment(rawAssessment, input) {
       ai_extraction_status: 'generated',
       ai_provider: 'gemini',
       ai_model: geminiModel,
+      ai_prompt_version: 'v2-consultative-report-model',
       ai_generated_at: now,
       schema_repair_status: 'normalized'
     },
@@ -1306,7 +1389,7 @@ async function createAssessmentWithGemini(input) {
       responseMimeType: 'application/json'
     }
   });
-  const result = await model.generateContent(buildAssessmentPrompt(input));
+  const result = await model.generateContent(buildAssessmentPromptV2(input));
   const response = result.response;
   const jsonText = response.text();
   return normalizeAiAssessment(extractJsonObject(jsonText), input);

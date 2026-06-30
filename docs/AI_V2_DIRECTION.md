@@ -310,6 +310,15 @@ Escopo:
 - validar schema atualizado;
 - manter fallback atual.
 
+Status:
+
+- `buildAssessmentPromptV2` implementado no backend;
+- chamadas Gemini passam a usar o Prompt V2;
+- prompt antigo foi mantido no arquivo como referencia, sem ser chamado;
+- `appendix.ai_prompt_version` registra `v2-consultative-report-model`;
+- validacao real com `GEMINI_API_KEY` em ambiente Render ainda precisa ser executada;
+- DOCX ainda nao consome `report_model` diretamente.
+
 Risco:
 
 - resposta grande demais ou invalida.
