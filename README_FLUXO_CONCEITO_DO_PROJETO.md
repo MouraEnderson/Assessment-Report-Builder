@@ -10,8 +10,8 @@ O fluxo desejado é:
 Documento DOCX do assessment
     -> importacao local ou bookmark manual
     -> extracao de texto
-    -> geracao IA com Gemini
-    -> assessment.json validado por schema
+    -> IA V2 com Gemini: extracao fiel + analise consultiva + report_model
+    -> assessment.json/report_model validado por schema e qualidade
     -> revisao humana
     -> relatorio DOCX editavel baseado em template
 ```
@@ -39,6 +39,27 @@ https://assessment-report-builder.onrender.com/frontend/index.html
 O usuario tem um assessment em DOCX, local ou baixado manualmente de uma bookmark do 3DEXPERIENCE.
 
 O widget importa esse arquivo, extrai o texto, preserva a origem e chama o backend Render. O backend usa IA para estruturar o conteudo no contrato oficial `assessment.json`. Esse JSON é a fonte da verdade para revisao e futura geracao de DOCX final editavel.
+
+## Direcionamento IA V2
+
+A IA passa a ser tratada como motor consultivo do projeto, nao apenas como parser para JSON.
+
+O backend deve continuar validando schema, bloqueando erro real e renderizando DOCX editavel. A IA deve gerar a inteligencia do assessment:
+
+- extracao fiel de fatos, hipoteses e pendencias;
+- analise consultiva de processos, sistemas, gaps e riscos;
+- narrativas prontas para relatorio;
+- mapas, fluxos, radar e roadmap como estruturas renderizaveis;
+- perguntas abertas quando faltar evidencia;
+- revisao de qualidade antes da exportacao.
+
+O `assessment.json` continua sendo a fonte rastreavel para revisao. A evolucao IA V2 adiciona uma camada `report_model` orientada ao template e uma camada `quality_review` para bloquear relatorio fraco, generico ou sem evidencia.
+
+Documento de direcao:
+
+```text
+docs/AI_V2_DIRECTION.md
+```
 
 ## Arquitetura
 
@@ -100,6 +121,15 @@ Esse backup representa o estado em que:
 - o radar de gaps existe como matriz editavel em tabela;
 - o fluxo existe como tabela editavel.
 
+Antes da evolucao IA V2, foi criado outro ponto de retorno:
+
+```text
+Tag: backup-before-ai-v2-direction-2026-06-30
+Branch atual: codex/visual-flow-radar-docx
+```
+
+Esse backup representa o estado com PR visual em andamento antes da mudanca de direcao da IA.
+
 ## Premissas Atuais
 
 1. O `assessment.json` e a fonte da verdade.
@@ -112,6 +142,10 @@ Esse backup representa o estado em que:
 8. O guardrail anti-contaminacao nao deve ser removido para melhorar visual.
 9. O link oficial permanece `https://assessment-report-builder.onrender.com/`.
 10. Render nao recebe credenciais, CAS ou cookies 3DEXPERIENCE.
+11. A IA V2 deve atuar como motor consultivo, nao apenas parser de JSON.
+12. A IA V2 deve gerar `report_model` orientado ao template.
+13. A IA V2 deve gerar `quality_review` para apontar falta de evidencia, excesso de inferencia e secoes fracas.
+14. O backend continua responsavel por validar, bloquear erro e renderizar DOCX; a IA nao gera DOCX diretamente.
 
 ## Etapas do Projeto
 
@@ -184,13 +218,15 @@ Evidencias:
 Objetivo:
 
 ```text
-Usar Gemini para gerar assessment.json estruturado, validado por schema.
+V1: usar Gemini para gerar assessment.json estruturado, validado por schema.
+V2: usar Gemini como motor consultivo para gerar extracao fiel, analise, report_model e quality_review.
 ```
 
 Status:
 
 ```text
-Pronto no backend.
+V1 pronto no backend.
+V2 documentado e pendente implementacao.
 Pendente melhoria visual da tela principal.
 ```
 
@@ -210,6 +246,7 @@ Pendencia desta etapa:
 ```text
 Trocar a tela principal de JSON bruto por visao estruturada do assessment.
 JSON deve ficar como modo tecnico/avancado.
+Implementar Prompt V2 e schema V2 com report_model/quality_review.
 ```
 
 ### Etapa 4 - Template e DOCX final editavel
