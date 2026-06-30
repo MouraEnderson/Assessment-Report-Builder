@@ -258,8 +258,9 @@ Status:
 
 - implementado no schema como contrato opcional compativel;
 - backend normaliza `report_model` e `quality_review` em novos assessments;
-- Prompt V2 ainda nao foi ativado;
-- DOCX ainda nao consome `report_model` diretamente.
+- Prompt V2 foi ativado nas chamadas Gemini;
+- DOCX passa a consumir `report_model` quando disponivel;
+- UI passa a exibir `quality_review` e `report_model` em visao estruturada.
 
 Contrato implementado:
 
@@ -316,8 +317,8 @@ Status:
 - chamadas Gemini passam a usar o Prompt V2;
 - prompt antigo foi mantido no arquivo como referencia, sem ser chamado;
 - `appendix.ai_prompt_version` registra `v2-consultative-report-model`;
-- validacao real com `GEMINI_API_KEY` em ambiente Render ainda precisa ser executada;
-- DOCX ainda nao consome `report_model` diretamente.
+- validacao real com `GEMINI_API_KEY` em ambiente Render ainda precisa ser executada com a branch publicada;
+- DOCX consome `report_model` diretamente quando o campo existe.
 
 Risco:
 
@@ -352,6 +353,15 @@ Validacao:
 - falha para na etapa correta;
 - sem fallback silencioso.
 
+Status:
+
+- implementado como primeiro corte sem multiplas chamadas Gemini;
+- `quality_review` da IA participa da validacao;
+- exportacao DOCX e bloqueada quando `quality_review.readiness = blocked`;
+- warnings de qualidade aparecem no resultado de validacao;
+- ainda nao ha persistencia separada de cada etapa intermediaria;
+- ainda nao ha reprocessamento isolado de uma unica secao.
+
 ### PR IA-4 - UI de revisao inteligente
 
 Escopo:
@@ -370,6 +380,13 @@ Validacao:
 - usuario revisa assessment antes do DOCX;
 - alteracoes continuam validando schema.
 
+Status:
+
+- preview principal mostra `quality_review`;
+- preview principal mostra `report_model`;
+- JSON bruto continua em modo tecnico/avancado;
+- ainda nao ha regeneracao isolada por secao.
+
 ### PR IA-5 - Exportacao DOCX orientada ao `report_model`
 
 Escopo:
@@ -387,6 +404,18 @@ Validacao:
 - assessment antigo ainda exporta;
 - assessment V2 exporta com narrativa melhor;
 - Word abre e objetos continuam editaveis.
+
+Status:
+
+- `executive_narrative` alimenta o resumo executivo;
+- `software_network` alimenta mapa de softwares;
+- `process_flows` alimenta processos e fluxos visuais;
+- `gap_analysis` alimenta mapa de gaps;
+- `maturity_radar` alimenta grafico radar;
+- `risk_map` alimenta riscos;
+- `recommendation_logic` alimenta recomendacoes;
+- `roadmap_waves` alimenta roadmap;
+- fallback para campos V1 preservado para assessments antigos.
 
 ## Criterios de aceite
 

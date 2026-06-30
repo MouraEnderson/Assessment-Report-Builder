@@ -104,6 +104,105 @@
     return '<span class="assessment-count"><strong>' + escapeHtml(value) + '</strong>' + escapeHtml(label) + '</span>';
   }
 
+  function textValue(value, fallback) {
+    if (value == null || value === '') return fallback || '-';
+    if (Array.isArray(value)) return value.filter(Boolean).join('; ') || (fallback || '-');
+    return String(value);
+  }
+
+  function renderQualityReview(review) {
+    if (!review || typeof review !== 'object') {
+      return '' +
+        '<section class="assessment-preview-section">' +
+          '<h3>Revisao de qualidade IA</h3>' +
+          '<p class="assessment-empty">quality_review ausente. Gere novamente com IA V2 ou revise manualmente antes de exportar.</p>' +
+        '</section>';
+    }
+
+    return '' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Revisao de qualidade IA</h3>' +
+        '<div class="assessment-preview-header">' +
+          countLabel('Status', review.readiness || 'nao avaliado') +
+          countLabel('Score', review.score == null ? '-' : review.score + '/100') +
+          countLabel('Risco generico', review.generic_content_risk || 'nao avaliado') +
+        '</div>' +
+        '<p>' + escapeHtml(review.summary || 'Sem resumo de qualidade.') + '</p>' +
+        '<h4>Bloqueios</h4>' +
+        table([
+          { label: 'Codigo', key: 'code' },
+          { label: 'Mensagem', key: 'message' },
+          { label: 'Secao', key: 'related_section' }
+        ], review.blocking_issues || []) +
+        '<h4>Alertas</h4>' +
+        table([
+          { label: 'Codigo', key: 'code' },
+          { label: 'Mensagem', key: 'message' },
+          { label: 'Secao', key: 'related_section' }
+        ], review.warnings || []) +
+        '<h4>Lacunas de evidencia</h4>' +
+        listItems(review.evidence_gaps || []) +
+      '</section>';
+  }
+
+  function renderReportModel(model) {
+    var network;
+
+    if (!model || typeof model !== 'object') return '';
+
+    network = model.software_network || {};
+    return '' +
+      '<section class="assessment-preview-section">' +
+        '<h3>Modelo consultivo para o template</h3>' +
+        '<p>' + escapeHtml(model.executive_narrative || 'Sem narrativa executiva no report_model.') + '</p>' +
+        '<h4>Narrativas por secao</h4>' +
+        table([
+          { label: 'Secao', key: 'title' },
+          { label: 'Narrativa', key: 'narrative' },
+          { label: 'Confianca', key: 'confidence' },
+          { label: 'Evidencias', value: function (row) { return textValue(row.evidence_refs); } }
+        ], model.section_narratives || []) +
+        '<h4>Mapa de softwares</h4>' +
+        '<p>' + escapeHtml(network.narrative || 'Sem narrativa do mapa de softwares.') + '</p>' +
+        table([
+          { label: 'No', key: 'label' },
+          { label: 'Tipo', key: 'type' },
+          { label: 'Descricao', key: 'description' },
+          { label: 'Evidencias', value: function (row) { return textValue(row.evidence_refs); } }
+        ], network.nodes || []) +
+        '<h4>Relacoes entre softwares</h4>' +
+        table([
+          { label: 'Origem', key: 'source' },
+          { label: 'Destino', key: 'target' },
+          { label: 'Relacao', key: 'label' },
+          { label: 'Tipo', key: 'type' }
+        ], network.links || []) +
+        '<h4>Fluxos de processo IA</h4>' +
+        table([
+          { label: 'Tipo', key: 'type' },
+          { label: 'Titulo', key: 'title' },
+          { label: 'Narrativa', key: 'narrative' },
+          { label: 'Etapas', value: function (row) { return (row.steps || []).length; } },
+          { label: 'Confianca', key: 'confidence' }
+        ], model.process_flows || []) +
+        '<h4>Analise de gaps IA</h4>' +
+        table([
+          { label: 'Gap', key: 'title' },
+          { label: 'Analise', key: 'analysis' },
+          { label: 'Impacto', key: 'impact' },
+          { label: 'Recomendacao', key: 'recommendation' },
+          { label: 'Confianca', key: 'confidence' }
+        ], model.gap_analysis || []) +
+        '<h4>Radar IA</h4>' +
+        table([
+          { label: 'Categoria', key: 'category' },
+          { label: 'Atual', key: 'score' },
+          { label: 'Alvo', key: 'target' },
+          { label: 'Justificativa', key: 'justification' }
+        ], model.maturity_radar || []) +
+      '</section>';
+  }
+
   function request(method, url, payload, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
@@ -364,6 +463,8 @@
         countLabel('Recomendações', (assessment.recommendations || []).length) +
         countLabel('Roadmap', (assessment.roadmap || []).length) +
       '</div>' +
+      renderQualityReview(assessment.quality_review) +
+      renderReportModel(assessment.report_model) +
       '<section class="assessment-preview-section">' +
         '<h3>Resumo executivo</h3>' +
         '<p>' + escapeHtml(summary.current_state || 'Sem resumo estruturado.') + '</p>' +

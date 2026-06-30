@@ -229,7 +229,8 @@ V1 pronto no backend.
 V2 contrato inicial implementado no schema/backend.
 Prompt V2 consultivo implementado no backend e usado nas chamadas Gemini.
 Validacao real com GEMINI_API_KEY no Render pendente.
-Pendente melhoria visual da tela principal.
+Tela principal exibe quality_review e report_model.
+Exportacao DOCX consome report_model quando disponivel.
 ```
 
 Evidencias:
@@ -241,6 +242,10 @@ Evidencias:
 - Backend normaliza `report_model` e `quality_review` para novos assessments.
 - Backend possui `buildAssessmentPromptV2`.
 - Gemini passa a usar Prompt V2 consultivo.
+- Validacao retorna warnings derivados de `quality_review`.
+- Exportacao DOCX bloqueia assessment com `quality_review.readiness=blocked`.
+- Widget mostra revisao estruturada de `quality_review` e `report_model`.
+- DOCX usa `report_model` para narrativa, mapa de software, processos, fluxos, gaps, radar, riscos, recomendacoes e roadmap.
 - `/api/assessment/generate` local sem Gemini retornou `valid=true` com contrato V2.
 - `/api/assessment/export-docx` local aceitou assessment com contrato V2 e gerou DOCX Word valido.
 - Teste real com DOCX XMOBOTS retornou:
@@ -252,9 +257,9 @@ Evidencias:
 Pendencia desta etapa:
 
 ```text
-Trocar a tela principal de JSON bruto por visao estruturada do assessment.
-JSON deve ficar como modo tecnico/avancado.
-Implementar Prompt V2 e schema V2 com report_model/quality_review.
+Validar Prompt V2 com Gemini real apos deploy da branch.
+Avaliar se sera necessario dividir Gemini em chamadas fisicas separadas para extracao, analise, report_model e quality_review.
+Implementar regeneracao isolada por secao somente se a validacao real justificar.
 ```
 
 ### Etapa 4 - Template e DOCX final editavel
@@ -360,6 +365,13 @@ PDF = saida de leitura futura
 - `node --check backend/docx-template-renderer.js`
 - `node --check backend/scripts/create-clean-operational-template.js`
 - `node --check frontend/assets/js/assessment-runtime.js`
+- Schema compilado com AJV 2020.
+- `/api/assessment/generate` local sem `GEMINI_API_KEY` retornou `valid=true`.
+- `/api/assessment/validate` aceitou assessment V2 com `report_model` e `quality_review`.
+- `/api/assessment/export-docx` bloqueou exportacao com `quality_review.readiness=blocked` retornando `422 ASSESSMENT_QUALITY_BLOCKED`.
+- `/api/assessment/export-docx` gerou DOCX contendo marcadores exclusivos vindos de `report_model`.
+- DOCX local abriu no Microsoft Word com `Tables=21`, `Shapes=93`, `InlineShapes=1`.
+- Estrutura DOCX contem `word/charts/chart1.xml`, preservando grafico Office nativo.
 - `npm audit --omit=dev`
 - `git diff --check`
 - Importacao do DOCX XMOBOTS.

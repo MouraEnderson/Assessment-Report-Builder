@@ -111,12 +111,87 @@ function normalizeValidationErrors(errors = []) {
   }));
 }
 
+function assessmentQualityWarnings(assessment) {
+  const review = assessment && assessment.quality_review && typeof assessment.quality_review === 'object'
+    ? assessment.quality_review
+    : null;
+  const warnings = [];
+
+  if (!review) {
+    warnings.push({
+      code: 'QUALITY_REVIEW_MISSING',
+      message: 'quality_review ausente; execute IA V2 ou revise manualmente antes de envio oficial.',
+      severity: 'warning',
+      related_section: 'quality_review'
+    });
+    return warnings;
+  }
+
+  if (review.readiness === 'draft') {
+    warnings.push({
+      code: 'QUALITY_REVIEW_DRAFT',
+      message: review.summary || 'Assessment marcado como rascunho; exige revisao humana.',
+      severity: 'warning',
+      related_section: 'quality_review'
+    });
+  }
+
+  if (review.generic_content_risk === 'Alto') {
+    warnings.push({
+      code: 'GENERIC_CONTENT_RISK_HIGH',
+      message: 'Risco alto de conteudo generico no assessment.',
+      severity: 'warning',
+      related_section: 'quality_review'
+    });
+  }
+
+  (Array.isArray(review.warnings) ? review.warnings : []).forEach((item) => {
+    warnings.push({
+      code: safeText(item.code, 'QUALITY_WARNING'),
+      message: safeText(item.message, 'Ponto de qualidade pendente de revisao.'),
+      severity: safeText(item.severity, 'warning'),
+      related_section: item.related_section || null
+    });
+  });
+
+  return warnings;
+}
+
+function assessmentQualityBlockingIssues(assessment) {
+  const review = assessment && assessment.quality_review && typeof assessment.quality_review === 'object'
+    ? assessment.quality_review
+    : null;
+  const issues = [];
+
+  if (!review) return issues;
+
+  if (review.readiness === 'blocked') {
+    issues.push({
+      code: 'QUALITY_REVIEW_BLOCKED',
+      message: review.summary || 'Assessment bloqueado pela revisao de qualidade.',
+      severity: 'blocking',
+      related_section: 'quality_review'
+    });
+  }
+
+  (Array.isArray(review.blocking_issues) ? review.blocking_issues : []).forEach((item) => {
+    issues.push({
+      code: safeText(item.code, 'QUALITY_BLOCKING_ISSUE'),
+      message: safeText(item.message, 'Bloqueio de qualidade pendente de revisao.'),
+      severity: 'blocking',
+      related_section: item.related_section || null
+    });
+  });
+
+  return issues;
+}
+
 function validateAssessment(assessment) {
   const valid = validateSchema(assessment);
   return {
     valid: Boolean(valid),
     errors: valid ? [] : normalizeValidationErrors(validateSchema.errors),
-    warnings: []
+    warnings: assessmentQualityWarnings(assessment)
   };
 }
 
@@ -1585,6 +1660,19 @@ app.post('/api/assessment/export-docx', async (req, res) => {
       error: 'ASSESSMENT_SCHEMA_INVALID',
       message: 'O assessment precisa estar válido no schema antes de gerar DOCX.',
       validation
+    });
+  }
+
+  const blockingIssues = assessmentQualityBlockingIssues(assessment);
+  if (blockingIssues.length) {
+    return res.status(422).json({
+      ok: false,
+      error: 'ASSESSMENT_QUALITY_BLOCKED',
+      message: 'O assessment foi bloqueado pela revisao de qualidade antes da exportacao DOCX.',
+      validation: {
+        ...validation,
+        blocking_issues: blockingIssues
+      }
     });
   }
 
