@@ -3,6 +3,7 @@ const path = require('path');
 const Docxtemplater = require('docxtemplater');
 const PizZip = require('pizzip');
 const { buildReportModel } = require('./report-model');
+const { injectNativeGapRadarChart } = require('./native-word-objects');
 
 const operationalTemplatePath = path.resolve(__dirname, 'templates', 'assessment-operational-template.docx');
 const legacyTemplateTerms = [
@@ -60,7 +61,10 @@ async function renderOperationalAssessmentDocx(assessment) {
     }
   });
 
-  doc.render(buildReportModel(assessment));
+  const reportModel = buildReportModel(assessment);
+  doc.render(reportModel);
+
+  await injectNativeGapRadarChart(doc.getZip(), reportModel);
 
   const buffer = doc.getZip().generate({
     type: 'nodebuffer',

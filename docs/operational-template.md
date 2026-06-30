@@ -47,6 +47,7 @@ O DOCX ativo contem apenas:
 - capa generica com faixa executiva;
 - secoes genericas numeradas;
 - tabelas editaveis;
+- grafico Radar Office nativo editavel;
 - matriz/radar de gaps editavel em tabela como apoio;
 - visao horizontal de fluxo editavel em tabela como apoio, limitada a 6 etapas por fluxo;
 - tabela detalhada de etapas de fluxo;
@@ -144,6 +145,13 @@ Endpoint local `/api/assessment/export-docx`:
 - nenhum termo legado;
 - nenhum placeholder operacional.
 
+Radar nativo:
+
+- o template operacional contem um grafico Radar Office nativo;
+- o backend atualiza o `word/charts/chart1.xml` e a planilha embutida a partir de `gap_radar`;
+- DOCX local gerado pelo renderer abriu no Microsoft Word;
+- Microsoft Word reconheceu 1 grafico nativo no documento (`InlineChartCount=1`).
+
 Validacao negativa:
 
 - um DOCX contaminado antigo foi bloqueado por `DOCX_EXPORT_TEMPLATE_LEAK`.
@@ -158,7 +166,6 @@ As tabelas atuais de radar e fluxo nao sao consideradas o visual final aceito pa
 
 A proxima etapa visual deve reconstruir:
 
-- grafico Radar Office nativo, editavel pelo Word;
 - fluxo como objeto nativo editavel do Word, preferencialmente SmartArt/processo;
 - alternativa tecnica de fluxo em shapes/conectores Word editaveis somente se SmartArt OOXML nao for viavel no Render;
 - refinamento de capa e espacamentos com base em comparacao visual.

@@ -312,6 +312,11 @@ function gapSection() {
     ),
     paragraph('Radar de gaps editavel', { heading: HeadingLevel.HEADING_2, bold: true, size: 22, before: 220 }),
     callout('Leitura executiva do radar', '{gap_radar_summary}', COLORS.amber),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por um grafico Radar nativo via Word.
+    paragraph('{native_gap_radar_chart}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Categoria', '0', '1', '2', '3', '4', '5', 'Score', 'Nivel', 'Gaps fonte'],
       'gap_radar',

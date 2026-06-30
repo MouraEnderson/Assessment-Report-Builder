@@ -210,6 +210,7 @@ function buildReportModel(assessment) {
       status: safeText(item.status)
     })),
     gap_radar_summary: buildRadarSummary(source.gap_radar),
+    native_gap_radar_chart: '__NATIVE_GAP_RADAR_CHART__',
     gap_radar: buildRadarRows(source.gap_radar),
     flow_visuals: buildFlowVisuals(source.flows),
     flow_steps: flattenFlowSteps(source.flows),

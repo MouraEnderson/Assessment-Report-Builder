@@ -339,6 +339,7 @@ PDF = saida de leitura futura
 - DOCX de producao abre no Microsoft Word.
 - DOCX de producao renderiza cliente, resumo, gaps, radar e fluxos.
 - DOCX de producao nao contem termos herdados do template quando nao existem no assessment.
+- DOCX local validado com grafico Radar Office nativo reconhecido pelo Word como chart (`InlineChartCount=1`).
 
 ## Decisoes Tecnicas
 
@@ -366,7 +367,7 @@ PDF = saida de leitura futura
 
 2. Melhorar DOCX final editavel:
    - evoluir fluxo visual para objeto nativo editavel do Word;
-   - evoluir radar de gaps para grafico Office nativo editavel;
+   - radar de gaps em grafico Office nativo editavel implementado no template operacional;
    - refinar capa e estilos;
    - aproximar do template oficial sem copiar conteudo fixo;
    - preservar guardrail anti-contaminacao.
@@ -395,8 +396,7 @@ Gerar fluxo e radar como objetos nativos editaveis do Word sem quebrar o templat
 Escopo previsto:
 
 - manter `backend/report-model.js` como fonte estruturada de dados;
-- adicionar geracao OOXML pos-render em `backend/docx-template-renderer.js`;
-- gerar grafico Radar Office nativo a partir de `gap_radar`;
+- atualizar grafico Radar Office nativo existente no template a partir de `gap_radar`;
 - gerar fluxo como objeto Word editavel, preferencialmente SmartArt/processo; se SmartArt OOXML nao for viavel no Render, usar shapes/conectores Word editaveis;
 - manter tabelas apenas como detalhe/auditoria, nao como visual principal;
 - regenerar `backend/templates/assessment-operational-template.docx`;

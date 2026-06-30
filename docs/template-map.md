@@ -335,4 +335,9 @@ Para atender ao requisito de fidelidade e editabilidade no Word, a proxima fase 
 2. fluxo como SmartArt/processo nativo do Word quando tecnicamente viavel;
 3. fluxo como shapes/conectores Word editaveis se SmartArt OOXML nao for viavel no Render.
 
+Status atual:
+
+- radar Office nativo implementado no template operacional e atualizado pelo backend;
+- fluxo nativo ainda pendente.
+
 Tabela nao substitui o fluxo visual final. Imagem estatica tambem nao atende ao requisito sem aprovacao explicita.
