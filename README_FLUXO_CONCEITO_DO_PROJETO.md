@@ -380,6 +380,7 @@ PDF = saida de leitura futura
 - `/api/assessment/export-docx` gerou DOCX contendo marcadores exclusivos vindos de `report_model`.
 - DOCX local abriu no Microsoft Word com `Tables=21`, `Shapes=93`, `InlineShapes=1`.
 - Estrutura DOCX contem `word/charts/chart1.xml`, preservando grafico Office nativo.
+- Renderer DOCX ajustado para reduzir tabelas principais, remover shapes visuais vazias, corrigir bullets do resumo executivo e interpretar baixa maturidade no radar como criticidade.
 - `npm audit --omit=dev`
 - `git diff --check`
 - Importacao do DOCX XMOBOTS.

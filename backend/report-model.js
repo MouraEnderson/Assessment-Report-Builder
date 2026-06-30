@@ -1,11 +1,33 @@
 function safeText(value, fallback = '-') {
-  if (value == null || value === '') return fallback;
+  if (value == null || value === '') return normalizeDisplayText(fallback);
   if (Array.isArray(value)) return value.map((item) => safeText(item, '')).filter(Boolean).join('; ') || fallback;
-  return String(value);
+  return normalizeDisplayText(String(value));
 }
 
 function compactArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+const REMOVE_VISUAL_SHAPE_MARKER = '__REMOVE_EMPTY_VISUAL_SHAPE__';
+
+function normalizeDisplayText(value) {
+  return String(value == null ? '' : value)
+    .replace(/\bMedia\b/g, 'Média')
+    .replace(/\bMedio\b/g, 'Médio')
+    .replace(/\bCritico\b/g, 'Crítico')
+    .replace(/\bCritica\b/g, 'Crítica')
+    .replace(/\bNao\b/g, 'Não')
+    .replace(/\bHipotese\b/g, 'Hipótese')
+    .replace(/\bPendencia\b/g, 'Pendência')
+    .replace(/\bRecomendacao\b/g, 'Recomendação')
+    .replace(/\bValidacao\b/g, 'Validação')
+    .replace(/\bIntegracao\b/g, 'Integração')
+    .replace(/\bGovernanca\b/g, 'Governança')
+    .replace(/\bEvidencia\b/g, 'Evidência')
+    .replace(/\bConfianca\b/g, 'Confiança')
+    .replace(/\bProxima\b/g, 'Próxima')
+    .replace(/\bvisao\b/g, 'visão')
+    .replace(/\bcategoria critica\b/g, 'categoria crítica');
 }
 
 function flattenFlowSteps(flows) {
@@ -47,11 +69,10 @@ function flowStepText(step, fallback) {
 
   const parts = [
     safeText(step.activity, ''),
-    safeText(step.system, ''),
-    safeText(step.issue, '')
+    safeText(step.system, '')
   ].filter(Boolean);
 
-  return parts.length ? parts.join(' | ') : fallback;
+  return parts.length ? truncateText(parts.join(' | '), 58) : fallback;
 }
 
 function buildFlowVisuals(flows) {
@@ -66,12 +87,12 @@ function buildFlowVisuals(flows) {
       flow_name: safeText(flow.name, 'Fluxo nao nomeado'),
       flow_type: safeText(flow.type, 'AS-IS'),
       evidence: safeText(flow.evidence, 'Nao evidenciado no rascunho importado.'),
-      step_1: flowStepText(visibleSteps[0], 'Etapa 1 nao evidenciada'),
-      step_2: flowStepText(visibleSteps[1], 'Etapa 2 nao evidenciada'),
-      step_3: flowStepText(visibleSteps[2], 'Etapa 3 nao evidenciada'),
-      step_4: flowStepText(visibleSteps[3], 'Etapa 4 nao evidenciada'),
-      step_5: flowStepText(visibleSteps[4], 'Etapa 5 nao evidenciada'),
-      step_6: flowStepText(visibleSteps[5], 'Etapa 6 nao evidenciada'),
+      step_1: flowStepText(visibleSteps[0], REMOVE_VISUAL_SHAPE_MARKER),
+      step_2: flowStepText(visibleSteps[1], REMOVE_VISUAL_SHAPE_MARKER),
+      step_3: flowStepText(visibleSteps[2], REMOVE_VISUAL_SHAPE_MARKER),
+      step_4: flowStepText(visibleSteps[3], REMOVE_VISUAL_SHAPE_MARKER),
+      step_5: flowStepText(visibleSteps[4], REMOVE_VISUAL_SHAPE_MARKER),
+      step_6: flowStepText(visibleSteps[5], REMOVE_VISUAL_SHAPE_MARKER),
       overflow_note: overflow
     };
   });
@@ -95,13 +116,15 @@ function buildNativeFlowPlaceholders(flows) {
   const result = {};
 
   for (let flowIndex = 0; flowIndex < 2; flowIndex += 1) {
-    const flow = visuals[flowIndex] || {};
-    result[`flow_shape_${flowIndex + 1}_title`] = `${safeText(flow.flow_type, 'Pendente')} - ${safeText(flow.flow_name, 'Fluxo nao evidenciado')}`;
+    const flow = visuals[flowIndex];
+    result[`flow_shape_${flowIndex + 1}_title`] = flow
+      ? `${safeText(flow.flow_type, 'Pendente')} - ${truncateText(flow.flow_name, 52)}`
+      : REMOVE_VISUAL_SHAPE_MARKER;
 
     for (let stepIndex = 0; stepIndex < 6; stepIndex += 1) {
       result[`flow_shape_${flowIndex + 1}_step_${stepIndex + 1}`] = safeText(
-        flow[`step_${stepIndex + 1}`],
-        'Etapa nao evidenciada'
+        flow && flow[`step_${stepIndex + 1}`],
+        REMOVE_VISUAL_SHAPE_MARKER
       );
     }
   }
@@ -114,18 +137,16 @@ function buildNativeFlowDetailPlaceholders(flows) {
   const result = {};
 
   for (let index = 0; index < 8; index += 1) {
-    const step = steps[index] || {};
-    result[`flow_detail_shape_${index + 1}_title`] = truncateText([
+    const step = steps[index];
+    result[`flow_detail_shape_${index + 1}_title`] = step ? truncateText([
       safeText(step.order, ''),
       safeText(step.flow_name, '')
-    ].filter(Boolean).join(' - '), 34);
-    result[`flow_detail_shape_${index + 1}_body`] = truncateText([
-      safeText(step.input, ''),
+    ].filter(Boolean).join(' - '), 34) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`flow_detail_shape_${index + 1}_body`] = step ? truncateText([
       safeText(step.activity, ''),
-      safeText(step.output, ''),
       safeText(step.system, ''),
       safeText(step.responsible, '')
-    ].filter(Boolean).join(' | '), 120);
+    ].filter(Boolean).join(' | '), 82) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -142,13 +163,12 @@ function buildNativeSoftwarePlaceholders(softwareMap) {
   const result = {};
 
   for (let index = 0; index < 8; index += 1) {
-    const item = systems[index] || {};
-    result[`software_shape_${index + 1}_title`] = truncateText(item.software || item.area || `Sistema ${index + 1}`, 42);
-    result[`software_shape_${index + 1}_body`] = truncateText([
+    const item = systems[index];
+    result[`software_shape_${index + 1}_title`] = item ? truncateText(item.software || item.area || `Sistema ${index + 1}`, 34) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`software_shape_${index + 1}_body`] = item ? truncateText([
       safeText(item.area, ''),
-      safeText(item.usage, ''),
-      safeText(item.pain_points, '')
-    ].filter(Boolean).join(' | '), 95);
+      safeText(item.usage, '')
+    ].filter(Boolean).join(' | '), 64) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -159,13 +179,12 @@ function buildNativeProcessPlaceholders(processMap) {
   const result = {};
 
   for (let index = 0; index < 6; index += 1) {
-    const item = processes[index] || {};
-    result[`process_shape_${index + 1}_title`] = truncateText(item.name || `Processo ${index + 1}`, 44);
-    result[`process_shape_${index + 1}_body`] = truncateText([
+    const item = processes[index];
+    result[`process_shape_${index + 1}_title`] = item ? truncateText(item.name || `Processo ${index + 1}`, 38) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`process_shape_${index + 1}_body`] = item ? truncateText([
       safeText(item.owner_area, ''),
-      safeText(item.systems, ''),
-      safeText(item.pain_points, '')
-    ].filter(Boolean).join(' | '), 95);
+      safeText(item.systems, '')
+    ].filter(Boolean).join(' | '), 68) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -176,13 +195,13 @@ function buildNativeGapPlaceholders(gapMap) {
   const result = {};
 
   for (let index = 0; index < 6; index += 1) {
-    const item = gaps[index] || {};
-    result[`gap_shape_${index + 1}_title`] = truncateText(item.category || item.id || `Gap ${index + 1}`, 38);
-    result[`gap_shape_${index + 1}_body`] = truncateText([
+    const item = gaps[index];
+    result[`gap_shape_${index + 1}_title`] = item ? truncateText(item.category || item.id || `Gap ${index + 1}`, 34) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`gap_shape_${index + 1}_body`] = item ? truncateText([
       safeText(item.description, ''),
       safeText(item.impact, ''),
       safeText(item.recommendation, '')
-    ].filter(Boolean).join(' | '), 105);
+    ].filter(Boolean).join(' | '), 78) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -193,12 +212,12 @@ function buildNativeRiskPlaceholders(risks) {
   const result = {};
 
   for (let index = 0; index < 5; index += 1) {
-    const item = riskItems[index] || {};
-    result[`risk_shape_${index + 1}_title`] = truncateText(item.impact || item.probability || `Risco ${index + 1}`, 34);
-    result[`risk_shape_${index + 1}_body`] = truncateText([
+    const item = riskItems[index];
+    result[`risk_shape_${index + 1}_title`] = item ? truncateText(item.description || item.impact || item.probability || `Risco ${index + 1}`, 34) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`risk_shape_${index + 1}_body`] = item ? truncateText([
       safeText(item.description, ''),
       safeText(item.mitigation, '')
-    ].filter(Boolean).join(' | '), 105);
+    ].filter(Boolean).join(' | '), 78) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -209,24 +228,24 @@ function buildNativeRoadmapPlaceholders(roadmap) {
   const result = {};
 
   for (let index = 0; index < 5; index += 1) {
-    const item = items[index] || {};
-    result[`roadmap_shape_${index + 1}_title`] = truncateText(item.phase || `Onda ${index + 1}`, 32);
-    result[`roadmap_shape_${index + 1}_body`] = truncateText([
+    const item = items[index];
+    result[`roadmap_shape_${index + 1}_title`] = item ? truncateText(item.title || item.phase || `Onda ${index + 1}`, 30) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`roadmap_shape_${index + 1}_body`] = item ? truncateText([
       safeText(item.title, ''),
       safeText(item.description, ''),
       safeText(item.dependencies, '')
-    ].filter(Boolean).join(' | '), 110);
+    ].filter(Boolean).join(' | '), 78) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
 }
 
 function radarRiskLevel(score) {
-  if (score >= 4) return 'Critico';
-  if (score >= 3) return 'Alto';
-  if (score >= 2) return 'Medio';
-  if (score >= 1) return 'Baixo';
-  return 'Nao avaliado';
+  if (score <= 1) return 'Crítico';
+  if (score <= 2) return 'Alto';
+  if (score <= 3) return 'Médio';
+  if (score <= 4) return 'Baixo';
+  return 'Controlado';
 }
 
 function buildRadarRows(gapRadar) {
@@ -271,13 +290,13 @@ function buildRadarSummary(gapRadar) {
     category: safeText(item.category),
     score: Math.max(0, Math.min(5, Number(item.score || 0)))
   }));
-  const highRows = scoredRows.filter((item) => item.score >= 4);
+  const criticalRows = scoredRows.filter((item) => item.score <= 2);
   const average = scoredRows.reduce((sum, item) => sum + item.score, 0) / scoredRows.length;
-  const priorityText = highRows.length
-    ? `Prioridade critica: ${highRows.map((item) => item.category).join(', ')}.`
-    : 'Nenhuma categoria critica evidenciada.';
+  const priorityText = criticalRows.length
+    ? `Prioridade crítica: ${criticalRows.map((item) => item.category).join(', ')}.`
+    : 'Nenhuma categoria crítica evidenciada.';
 
-  return `Media geral ${average.toFixed(1)}/5. ${priorityText}`;
+  return `Maturidade média ${average.toFixed(1)}/5. ${priorityText}`;
 }
 
 function reportSectionNarrative(reportModel, sectionId) {
@@ -454,7 +473,7 @@ function buildReportModel(assessment) {
     cover_assessment_type: cover.assessment_type,
     cover_generated_at: cover.generated_at,
     executive_current_state: executive.current_state,
-    executive_main_pains: executive.main_pains,
+    executive_main_pains: executive.main_pains.map((pain) => `${pain}\n`),
     executive_overall_maturity: executive.overall_maturity,
     executive_evidence: executive.evidence,
     cover: {

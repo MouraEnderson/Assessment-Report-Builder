@@ -6,6 +6,7 @@ const { buildReportModel } = require('./report-model');
 const { injectNativeGapRadarChart } = require('./native-word-objects');
 
 const operationalTemplatePath = path.resolve(__dirname, 'templates', 'assessment-operational-template.docx');
+const removeVisualShapeMarker = '__REMOVE_EMPTY_VISUAL_SHAPE__';
 const legacyTemplateTerms = [
   'XMOBOTS',
   'Altium',
@@ -50,6 +51,66 @@ function assertNoLegacyTemplateLeak(buffer, assessment) {
   }
 }
 
+function normalizeXmlText(xml) {
+  return String(xml || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+function removeEmptyVisualShapes(documentXml) {
+  let nextXml = documentXml;
+
+  nextXml = nextXml.replace(
+    /<mc:AlternateContent\b[\s\S]*?<\/mc:AlternateContent>/g,
+    (block) => (block.includes(removeVisualShapeMarker) ? '' : block)
+  );
+  nextXml = nextXml.replace(
+    /<w:drawing\b[\s\S]*?<\/w:drawing>/g,
+    (block) => (block.includes(removeVisualShapeMarker) ? '' : block)
+  );
+  nextXml = nextXml.replace(
+    /<w:pict\b[\s\S]*?<\/w:pict>/g,
+    (block) => (block.includes(removeVisualShapeMarker) ? '' : block)
+  );
+
+  return nextXml.replace(new RegExp(removeVisualShapeMarker, 'g'), '');
+}
+
+function isPrimaryDetailTable(tableXml) {
+  const text = normalizeXmlText(tableXml);
+  const headerGroups = [
+    ['AREA', 'SISTEMA', 'USO', 'DORES', 'OPORTUNIDADES'],
+    ['PROCESSO', 'AREA', 'SISTEMAS', 'DORES', 'EVIDENCIA'],
+    ['GAP', 'CATEGORIA', 'IMPACTO', 'RECOMENDACAO'],
+    ['CATEGORIA', 'SCORE', 'NIVEL', 'GAPS FONTE'],
+    ['RISCO', 'PROBABILIDADE', 'IMPACTO', 'MITIGACAO'],
+    ['FLUXO', 'TIPO', 'ETAPA 1', 'ETAPA 2'],
+    ['FLUXO', 'TIPO', 'ORDEM', 'ENTRADA', 'ATIVIDADE']
+  ];
+
+  return headerGroups.some((headers) => headers.every((header) => text.includes(header)));
+}
+
+function removePrimaryDetailTables(documentXml) {
+  return documentXml.replace(
+    /<w:tbl\b[\s\S]*?<\/w:tbl>/g,
+    (tableXml) => (isPrimaryDetailTable(tableXml) ? '' : tableXml)
+  );
+}
+
+function polishDocumentXml(zip) {
+  const documentPath = 'word/document.xml';
+  const documentFile = zip.file(documentPath);
+  if (!documentFile) return;
+
+  let documentXml = documentFile.asText();
+  documentXml = removeEmptyVisualShapes(documentXml);
+  documentXml = removePrimaryDetailTables(documentXml);
+  zip.file(documentPath, documentXml);
+}
+
 async function renderOperationalAssessmentDocx(assessment) {
   const templateBuffer = fs.readFileSync(operationalTemplatePath);
   const zip = new PizZip(templateBuffer);
@@ -63,6 +124,7 @@ async function renderOperationalAssessmentDocx(assessment) {
 
   const reportModel = buildReportModel(assessment);
   doc.render(reportModel);
+  polishDocumentXml(doc.getZip());
 
   await injectNativeGapRadarChart(doc.getZip(), reportModel);
 
