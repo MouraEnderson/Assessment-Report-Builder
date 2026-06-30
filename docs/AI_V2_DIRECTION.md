@@ -251,11 +251,54 @@ Escopo:
 - documentar direcao IA V2;
 - definir `report_model`;
 - definir `quality_review`;
-- manter runtime intacto.
+- manter compatibilidade com assessments antigos;
+- manter exportacao DOCX existente funcionando.
 
 Status:
 
-- este documento cria a base de decisao.
+- implementado no schema como contrato opcional compativel;
+- backend normaliza `report_model` e `quality_review` em novos assessments;
+- Prompt V2 ainda nao foi ativado;
+- DOCX ainda nao consome `report_model` diretamente.
+
+Contrato implementado:
+
+```text
+assessment.json
+  report_model
+    executive_narrative
+    section_narratives
+    software_network
+      nodes
+      links
+      narrative
+    process_flows
+    gap_analysis
+    risk_map
+    maturity_radar
+    recommendation_logic
+    roadmap_waves
+    open_questions
+    quality_notes
+  quality_review
+    readiness
+    score
+    summary
+    blocking_issues
+    warnings
+    evidence_gaps
+    generic_content_risk
+    required_human_review
+```
+
+Validacoes registradas:
+
+- `node --check backend/server.js`;
+- schema compilado com AJV 2020;
+- `/api/assessment/generate` sem Gemini retornou `valid=true`;
+- resposta gerada contem `report_model` e `quality_review`;
+- `/api/assessment/export-docx` aceitou assessment com contrato V2;
+- DOCX exportado abriu no Microsoft Word com `Shapes=93`, `InlineChartCount=1`, `Tables=21`.
 
 ### PR IA-2 - Prompt V2 monolitico controlado
 

@@ -819,6 +819,21 @@ function createAssessmentDraft(input) {
     risks: [],
     recommendations: [],
     roadmap: [],
+    report_model: normalizeReportModel({}),
+    quality_review: normalizeQualityReview({
+      readiness: 'draft',
+      score: 0,
+      summary: 'Contrato IA V2 inicial criado sem analise consultiva automatica.',
+      warnings: [{
+        code: 'AI_V2_NOT_GENERATED',
+        message: 'Report model consultivo ainda nao foi gerado.',
+        severity: 'warning',
+        related_section: 'report_model'
+      }],
+      evidence_gaps: ['Executar Prompt V2 para gerar analise consultiva baseada em evidencia.'],
+      generic_content_risk: 'NÃ£o avaliado',
+      required_human_review: true
+    }),
     open_questions: [],
     appendix: {
       transcript_processing_status: 'received',
@@ -934,9 +949,19 @@ function objectArray(value) {
   return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item)) : [];
 }
 
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
 function positiveInteger(value, fallback) {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : fallback;
+}
+
+function boundedInteger(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(number)));
 }
 
 function boundedScore(value) {
@@ -981,6 +1006,142 @@ function normalizeFlowType(value) {
 
 function normalizeOpenQuestionStatus(value) {
   return normalizeEnum(value, ['Aberta', 'Respondida', 'Descartada'], 'Aberta');
+}
+
+function normalizeQualityReadiness(value) {
+  return normalizeEnum(value, ['blocked', 'draft', 'review_ready'], 'draft');
+}
+
+function normalizeQualitySeverity(value) {
+  return normalizeEnum(value, ['info', 'warning', 'blocking'], 'warning');
+}
+
+function normalizeGenericContentRisk(value) {
+  return normalizeEnum(value, ['Baixo', 'MÃ©dio', 'Alto', 'NÃ£o avaliado'], 'NÃ£o avaliado');
+}
+
+function normalizeReportModel(rawReportModel) {
+  const model = plainObject(rawReportModel);
+  const softwareNetwork = plainObject(model.software_network);
+
+  return {
+    executive_narrative: nullableText(model.executive_narrative),
+    section_narratives: objectArray(model.section_narratives).map((item, index) => ({
+      section_id: requiredText(item.section_id, `section_${index + 1}`),
+      title: nullableText(item.title),
+      narrative: nullableText(item.narrative),
+      evidence_refs: stringArray(item.evidence_refs),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    software_network: {
+      nodes: objectArray(softwareNetwork.nodes).map((item, index) => ({
+        id: requiredText(item.id, `node_${index + 1}`),
+        label: nullableText(item.label),
+        type: nullableText(item.type),
+        description: nullableText(item.description),
+        evidence_refs: stringArray(item.evidence_refs)
+      })),
+      links: objectArray(softwareNetwork.links).map((item, index) => ({
+        source: requiredText(item.source, `source_${index + 1}`),
+        target: requiredText(item.target, `target_${index + 1}`),
+        label: nullableText(item.label),
+        type: nullableText(item.type),
+        evidence_refs: stringArray(item.evidence_refs)
+      })),
+      narrative: nullableText(softwareNetwork.narrative)
+    },
+    process_flows: objectArray(model.process_flows).map((flow, flowIndex) => ({
+      id: requiredText(flow.id, `report_flow_${flowIndex + 1}`),
+      title: nullableText(flow.title),
+      type: normalizeFlowType(flow.type),
+      narrative: nullableText(flow.narrative),
+      steps: objectArray(flow.steps).map((step, stepIndex) => ({
+        order: positiveInteger(step.order, stepIndex + 1),
+        label: nullableText(step.label),
+        detail: nullableText(step.detail),
+        system: nullableText(step.system),
+        responsible: nullableText(step.responsible),
+        evidence_refs: stringArray(step.evidence_refs)
+      })),
+      evidence_refs: stringArray(flow.evidence_refs),
+      confidence: normalizeConfidence(flow.confidence)
+    })),
+    gap_analysis: objectArray(model.gap_analysis).map((item, index) => ({
+      gap_id: requiredText(item.gap_id, `gap_${index + 1}`),
+      title: nullableText(item.title),
+      analysis: nullableText(item.analysis),
+      impact: normalizeImpact(item.impact),
+      recommendation: nullableText(item.recommendation),
+      evidence_refs: stringArray(item.evidence_refs),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    risk_map: objectArray(model.risk_map).map((item, index) => ({
+      risk_id: requiredText(item.risk_id, `risk_${index + 1}`),
+      title: nullableText(item.title),
+      description: nullableText(item.description),
+      mitigation: nullableText(item.mitigation),
+      evidence_refs: stringArray(item.evidence_refs),
+      confidence: normalizeConfidence(item.confidence)
+    })),
+    maturity_radar: objectArray(model.maturity_radar).map((item, index) => ({
+      category: requiredText(item.category, `Categoria ${index + 1}`),
+      score: boundedScore(item.score),
+      target: boundedScore(item.target == null ? 5 : item.target),
+      justification: nullableText(item.justification),
+      evidence_refs: stringArray(item.evidence_refs)
+    })),
+    recommendation_logic: objectArray(model.recommendation_logic).map((item, index) => ({
+      recommendation_id: requiredText(item.recommendation_id, `recommendation_${index + 1}`),
+      title: nullableText(item.title),
+      rationale: nullableText(item.rationale),
+      related_gaps: stringArray(item.related_gaps),
+      expected_outcome: nullableText(item.expected_outcome),
+      evidence_refs: stringArray(item.evidence_refs)
+    })),
+    roadmap_waves: objectArray(model.roadmap_waves).map((item, index) => ({
+      wave_id: requiredText(item.wave_id, `wave_${index + 1}`),
+      title: nullableText(item.title),
+      objective: nullableText(item.objective),
+      actions: stringArray(item.actions),
+      dependencies: stringArray(item.dependencies),
+      related_recommendations: stringArray(item.related_recommendations)
+    })),
+    open_questions: objectArray(model.open_questions).map((item) => ({
+      question: requiredText(item.question, 'Pergunta pendente de detalhamento.'),
+      reason: nullableText(item.reason),
+      target_area: nullableText(item.target_area)
+    })),
+    quality_notes: stringArray(model.quality_notes)
+  };
+}
+
+function normalizeQualityIssue(item, fallbackCode) {
+  const source = plainObject(item);
+  return {
+    code: requiredText(source.code, fallbackCode),
+    message: requiredText(source.message, 'Ponto de qualidade pendente de revisao.'),
+    severity: normalizeQualitySeverity(source.severity),
+    related_section: nullableText(source.related_section)
+  };
+}
+
+function normalizeQualityReview(rawQualityReview) {
+  const review = plainObject(rawQualityReview);
+
+  return {
+    readiness: normalizeQualityReadiness(review.readiness),
+    score: boundedInteger(review.score, 0, 0, 100),
+    summary: nullableText(review.summary),
+    blocking_issues: objectArray(review.blocking_issues).map((item, index) => (
+      normalizeQualityIssue(item, `blocking_${index + 1}`)
+    )),
+    warnings: objectArray(review.warnings).map((item, index) => (
+      normalizeQualityIssue(item, `warning_${index + 1}`)
+    )),
+    evidence_gaps: stringArray(review.evidence_gaps),
+    generic_content_risk: normalizeGenericContentRisk(review.generic_content_risk),
+    required_human_review: typeof review.required_human_review === 'boolean' ? review.required_human_review : true
+  };
 }
 
 function normalizeAiAssessment(rawAssessment, input) {
@@ -1108,6 +1269,8 @@ function normalizeAiAssessment(rawAssessment, input) {
       dependencies: stringArray(item.dependencies),
       related_recommendations: stringArray(item.related_recommendations)
     })),
+    report_model: normalizeReportModel(raw.report_model),
+    quality_review: normalizeQualityReview(raw.quality_review),
     open_questions: objectArray(raw.open_questions).map((item, index) => ({
       id: requiredText(item.id, `question_${index + 1}`),
       question: requiredText(item.question, 'Pergunta pendente de detalhamento.'),

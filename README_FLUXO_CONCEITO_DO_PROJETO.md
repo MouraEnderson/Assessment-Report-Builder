@@ -226,7 +226,8 @@ Status:
 
 ```text
 V1 pronto no backend.
-V2 documentado e pendente implementacao.
+V2 contrato inicial implementado no schema/backend.
+Prompt V2 pendente implementacao.
 Pendente melhoria visual da tela principal.
 ```
 
@@ -235,6 +236,10 @@ Evidencias:
 - Gemini configurado com `GEMINI_API_KEY` e `GEMINI_MODEL=gemini-2.5-flash`.
 - Producao gerou `assessment.json` com `ai_extraction_status=generated`.
 - Producao retornou `valid=true`.
+- Schema IA V2 aceita `report_model` e `quality_review`.
+- Backend normaliza `report_model` e `quality_review` para novos assessments.
+- `/api/assessment/generate` local sem Gemini retornou `valid=true` com contrato V2.
+- `/api/assessment/export-docx` local aceitou assessment com contrato V2 e gerou DOCX Word valido.
 - Teste real com DOCX XMOBOTS retornou:
   - `softwareCount=8`
   - `gapCount=6`
