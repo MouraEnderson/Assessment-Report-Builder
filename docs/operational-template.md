@@ -48,6 +48,7 @@ O DOCX ativo contem apenas:
 - secoes genericas numeradas;
 - tabelas editaveis;
 - grafico Radar Office nativo editavel;
+- shapes/conectores Word nativos para fluxo visual resumido;
 - matriz/radar de gaps editavel em tabela como apoio;
 - visao horizontal de fluxo editavel em tabela como apoio, limitada a 6 etapas por fluxo;
 - tabela detalhada de etapas de fluxo;
@@ -152,6 +153,15 @@ Radar nativo:
 - DOCX local gerado pelo renderer abriu no Microsoft Word;
 - Microsoft Word reconheceu 1 grafico nativo no documento (`InlineChartCount=1`).
 
+Fluxo nativo:
+
+- o template operacional contem shapes e conectores Word nativos para ate 2 fluxos visuais;
+- cada fluxo visual mostra ate 6 etapas;
+- o backend preenche os textos dos shapes via placeholders `flow_shape_*`;
+- a tabela detalhada continua como apoio para todos os fluxos e etapas;
+- DOCX local e DOCX vindo do endpoint local abriram no Microsoft Word;
+- Microsoft Word reconheceu os shapes do fluxo no documento (`Shapes=24`).
+
 Validacao negativa:
 
 - um DOCX contaminado antigo foi bloqueado por `DOCX_EXPORT_TEMPLATE_LEAK`.
@@ -166,8 +176,6 @@ As tabelas atuais de radar e fluxo nao sao consideradas o visual final aceito pa
 
 A proxima etapa visual deve reconstruir:
 
-- fluxo como objeto nativo editavel do Word, preferencialmente SmartArt/processo;
-- alternativa tecnica de fluxo em shapes/conectores Word editaveis somente se SmartArt OOXML nao for viavel no Render;
 - refinamento de capa e espacamentos com base em comparacao visual.
 
 Essa etapa visual so deve avancar mantendo o guardrail anti-contaminacao ativo.

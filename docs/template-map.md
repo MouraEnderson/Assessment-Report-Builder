@@ -338,6 +338,8 @@ Para atender ao requisito de fidelidade e editabilidade no Word, a proxima fase 
 Status atual:
 
 - radar Office nativo implementado no template operacional e atualizado pelo backend;
-- fluxo nativo ainda pendente.
+- fluxo nativo implementado como shapes/conectores Word editaveis preenchidos pelo backend;
+- visual de fluxo limitado a 2 fluxos e 6 etapas por fluxo;
+- tabela detalhada preserva os demais fluxos/etapas como apoio auditavel.
 
 Tabela nao substitui o fluxo visual final. Imagem estatica tambem nao atende ao requisito sem aprovacao explicita.

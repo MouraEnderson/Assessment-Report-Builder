@@ -338,6 +338,11 @@ function flowSection() {
   return [
     ...section('04', 'Fluxos AS-IS e TO-BE', 'Fluxos reconstruidos como matriz editavel para revisao e ajuste.'),
     paragraph('Fluxo visual resumido', { heading: HeadingLevel.HEADING_2, bold: true, size: 22 }),
+    // Marcador de autoria: o DOCX versionado substitui este paragrafo por shapes/conectores nativos do Word.
+    paragraph('{native_flow_diagrams}', {
+      alignment: AlignmentType.CENTER,
+      after: 160
+    }),
     dataTable(
       ['Fluxo', 'Tipo', 'Etapa 1', 'Etapa 2', 'Etapa 3', 'Etapa 4', 'Etapa 5', 'Etapa 6', 'Observacao'],
       'flow_visuals',

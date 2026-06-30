@@ -90,6 +90,25 @@ function buildFlowVisuals(flows) {
   }];
 }
 
+function buildNativeFlowPlaceholders(flows) {
+  const visuals = buildFlowVisuals(flows).slice(0, 2);
+  const result = {};
+
+  for (let flowIndex = 0; flowIndex < 2; flowIndex += 1) {
+    const flow = visuals[flowIndex] || {};
+    result[`flow_shape_${flowIndex + 1}_title`] = `${safeText(flow.flow_type, 'Pendente')} - ${safeText(flow.flow_name, 'Fluxo nao evidenciado')}`;
+
+    for (let stepIndex = 0; stepIndex < 6; stepIndex += 1) {
+      result[`flow_shape_${flowIndex + 1}_step_${stepIndex + 1}`] = safeText(
+        flow[`step_${stepIndex + 1}`],
+        'Etapa nao evidenciada'
+      );
+    }
+  }
+
+  return result;
+}
+
 function radarRiskLevel(score) {
   if (score >= 4) return 'Critico';
   if (score >= 3) return 'Alto';
@@ -154,6 +173,7 @@ function buildReportModel(assessment) {
   const client = source.client || {};
   const metadata = source.metadata || {};
   const executiveSummary = source.executive_summary || {};
+  const nativeFlowPlaceholders = buildNativeFlowPlaceholders(source.flows);
 
   const cover = {
     title: 'Assessment de Engenharia',
@@ -212,6 +232,8 @@ function buildReportModel(assessment) {
     gap_radar_summary: buildRadarSummary(source.gap_radar),
     native_gap_radar_chart: '__NATIVE_GAP_RADAR_CHART__',
     gap_radar: buildRadarRows(source.gap_radar),
+    native_flow_diagrams: '__NATIVE_FLOW_DIAGRAMS__',
+    ...nativeFlowPlaceholders,
     flow_visuals: buildFlowVisuals(source.flows),
     flow_steps: flattenFlowSteps(source.flows),
     risks: compactArray(source.risks).map((item) => ({
