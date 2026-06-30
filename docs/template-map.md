@@ -160,16 +160,16 @@ recommendations[].description
 | 1.1 Objetivo do Documento | texto | `client.assessment_scope`, `executive_summary.current_state` | Texto narrativo curto. |
 | 1.2 Metodologia Utilizada | texto padrao | fixo + `input_sources` | Manter texto padrao e registrar origem do rascunho. |
 | 2. Visao Geral | texto + blocos visuais | `client`, `software_map`, `process_map` | Descrever porte/contexto; listar sistemas identificados. |
-| 2.3 Ferramentas e Recursos | lista/bloco repetivel | `software_map` | Repetir softwares; se ausente, gerar pergunta aberta. |
-| 3. Analise de Situacao Atual | texto + tabelas | `process_map`, `flows`, `gap_map` | Consolidar AS-IS por processos e dores. |
+| 2.3 Ferramentas e Recursos | mapa visual editavel + apoio | `software_map` | Gerar mapa de software/sistemas; tabela apenas como inventario. |
+| 3. Analise de Situacao Atual | fluxos/mapas visuais + apoio | `process_map`, `flows`, `gap_map` | Consolidar AS-IS por processos e dores em objetos visuais. |
 | 3.1 a 3.6 | texto dinamico | `process_map`, `flows[].steps` | Gerar subsecoes conforme evidencias. Nao inventar quando ausente. |
-| 3.7 Gargalos | tabela | `gap_map`, `risks`, `recommendations` | Preencher tabela de gargalos. |
-| 3.8 Resumo AS-IS | texto | `executive_summary`, `gap_radar` | Consolidar maturidade e principais riscos. |
+| 3.7 Gargalos | mapa visual de gaps/riscos + apoio | `gap_map`, `risks`, `recommendations` | Gerar mapa visual; tabela apenas como apoio auditavel. |
+| 3.8 Resumo AS-IS | texto + radar visual | `executive_summary`, `gap_radar` | Consolidar maturidade e principais riscos com radar real. |
 | 4. Expectativas | texto | `recommendations`, `roadmap` | Descrever expectativas e solucoes recomendadas. |
 | 4.1 3DEXPERIENCE | texto/blocos | `recommendations`, `roadmap` | Relacionar recomendacoes PLM/3DX. |
 | 4.2 SKACONECTOR | texto/blocos | `recommendations`, `software_map` | Usar somente quando houver evidencia de integracao. |
-| 5. Direcionamentos | texto + roadmap visual | `roadmap`, `recommendations`, `risks` | Apresentar ondas e principios de conducao. |
-| 6. Proximos Passos | lista/tabela | `roadmap`, `open_questions` | Gerar proximas acoes e pendencias. |
+| 5. Direcionamentos | texto + roadmap visual editavel | `roadmap`, `recommendations`, `risks` | Apresentar ondas e principios de conducao como linha do tempo/fluxo. |
+| 6. Proximos Passos | fluxo/lista visual + apoio | `roadmap`, `open_questions` | Gerar proximas acoes e pendencias; tabela so como apoio. |
 | Fluxo Macro AS-IS | desenho Word + fallback tabela | `flows[type=AS-IS]` | Preservar desenho no primeiro corte; preencher tabela detalhada. |
 | Fluxo Macro TO-BE | desenho Word + fallback tabela | `flows[type=TO-BE]`, `roadmap` | Preservar desenho no primeiro corte; preencher tabela detalhada. |
 
@@ -341,5 +341,10 @@ Status atual:
 - fluxo nativo implementado como shapes/conectores Word editaveis preenchidos pelo backend;
 - visual de fluxo limitado a 2 fluxos e 6 etapas por fluxo;
 - tabela detalhada preserva os demais fluxos/etapas como apoio auditavel.
+- mapa de software ainda esta tabelado;
+- processos identificados ainda estao tabelados;
+- mapa de gaps ainda esta tabelado;
+- riscos identificados ainda estao tabelados;
+- roadmap ainda esta tabelado.
 
 Tabela nao substitui o fluxo visual final. Imagem estatica tambem nao atende ao requisito sem aprovacao explicita.

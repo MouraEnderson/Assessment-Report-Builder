@@ -55,6 +55,25 @@ O DOCX ativo contem apenas:
 - placeholders `docxtemplater`;
 - loops para listas do `assessment.json`.
 
+## Contrato visual esperado
+
+O relatório final esperado não pode depender de tabelas como visual principal.
+
+As seções abaixo devem ser tratadas como mapas, fluxos ou gráficos editáveis no Word:
+
+| Secao do relatorio | Visual esperado | Tabela permitida |
+|---|---|---|
+| Sistemas identificados | mapa de software/sistemas com caixas e relacoes | somente apoio/inventario |
+| Processos identificados | fluxo ou mapa de processo | somente apoio/detalhe |
+| Mapa de gaps | mapa visual de gaps, impactos e recomendacoes | somente apoio/auditoria |
+| Radar de gaps | grafico radar visual real | matriz somente como dados de apoio |
+| Riscos identificados | mapa/fluxo visual de riscos e mitigacoes | somente apoio |
+| Fluxo visual resumido | fluxo AS-IS/TO-BE com caixas e conectores | nao substitui o fluxo |
+| Detalhamento do fluxo | fluxo detalhado quando couber | apoio para excesso de etapas |
+| Roadmap | linha do tempo/fluxo por ondas | somente apoio |
+
+O template atual ainda nao atende esse contrato por completo. O radar nativo e o fluxo visual resumido avancaram, mas mapa de software, processos, mapa de gaps, riscos, detalhamento visual e roadmap ainda precisam sair do formato predominantemente tabelado.
+
 Nao deve conter:
 
 - nome de cliente exemplo;
@@ -176,6 +195,12 @@ As tabelas atuais de radar e fluxo nao sao consideradas o visual final aceito pa
 
 A proxima etapa visual deve reconstruir:
 
+- mapa de software como visual editavel;
+- processos identificados como fluxo/mapa editavel;
+- mapa de gaps como visual editavel;
+- riscos identificados como mapa/fluxo editavel;
+- detalhamento de fluxo como visual quando couber;
+- roadmap como linha do tempo/fluxo visual editavel;
 - refinamento de capa e espacamentos com base em comparacao visual.
 
 Essa etapa visual so deve avancar mantendo o guardrail anti-contaminacao ativo.

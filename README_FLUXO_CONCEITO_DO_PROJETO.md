@@ -358,6 +358,8 @@ PDF = saida de leitura futura
 - Fluxos e radar de gaps devem ser objetos nativos editaveis do Word quando usados como entrega visual final.
 - Tabelas de fluxo/radar ficam apenas como detalhamento de dados e fallback de auditoria, nao como visual final aceito.
 - PNG, SVG ou imagem estatica nao atendem ao requisito final de editabilidade sem decisao explicita.
+- O relatorio final nao pode ficar predominantemente tabelado. Mapas, fluxos, radar, riscos e roadmap precisam ter representacao visual editavel no Word.
+- `software_map`, `process_map`, `gap_map`, `risks`, `flows` e `roadmap` precisam alimentar objetos visuais, mantendo tabelas apenas como apoio/auditoria.
 
 ## O Que Falta
 
@@ -369,6 +371,11 @@ PDF = saida de leitura futura
 2. Melhorar DOCX final editavel:
    - fluxo visual em shapes/conectores nativos do Word implementado no template operacional;
    - radar de gaps em grafico Office nativo editavel implementado no template operacional;
+   - converter mapa de software para visual editavel;
+   - converter processos identificados para fluxo/mapa editavel;
+   - converter mapa de gaps para visual editavel;
+   - converter riscos identificados para visual editavel;
+   - converter roadmap para linha do tempo/fluxo editavel;
    - refinar capa e estilos;
    - aproximar do template oficial sem copiar conteudo fixo;
    - preservar guardrail anti-contaminacao.
@@ -399,6 +406,7 @@ Escopo previsto:
 - manter `backend/report-model.js` como fonte estruturada de dados;
 - atualizar grafico Radar Office nativo existente no template a partir de `gap_radar`;
 - preencher fluxo em shapes/conectores Word editaveis existentes no template;
+- substituir secoes principais ainda tabeladas por mapas/fluxos/roadmap visuais editaveis;
 - manter tabelas apenas como detalhe/auditoria, nao como visual principal;
 - regenerar `backend/templates/assessment-operational-template.docx`;
 - validar abertura no Word;
