@@ -5,7 +5,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const Ajv2020 = require('ajv/dist/2020');
 const mammoth = require('mammoth');
+const JSZip = require('jszip');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { renderOperationalAssessmentDocx } = require('./docx-template-renderer');
 const {
   AlignmentType,
   BorderStyle,
@@ -39,6 +41,7 @@ const aiGenerationTimeoutMs = Number(process.env.AI_GENERATION_TIMEOUT_MS || 110
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
+const officialTemplatePath = path.resolve(__dirname, 'templates', 'assessment-xmobots-template.docx');
 const assessmentSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -254,20 +257,15 @@ const DOCX_COLORS = {
   navy: '0F172A',
   blue: '2555D9',
   blueDark: '1F3F9A',
-  teal: '0F766E',
   blueLight: 'EAF0FF',
   cyanLight: 'E8F7FF',
   grayText: '475569',
   grayBorder: 'CBD5E1',
   grayFill: 'F8FAFC',
   green: 'DDF7E8',
-  greenDark: '166534',
   yellow: 'FFF4CC',
-  yellowDark: 'A16207',
   orange: 'FFE3C2',
-  orangeDark: 'C2410C',
   red: 'FFE0E0',
-  redDark: 'B91C1C',
   white: 'FFFFFF'
 };
 
@@ -299,34 +297,32 @@ function pageBreak() {
   return new Paragraph({ children: [new PageBreak()] });
 }
 
-function emptyBorders() {
-  const border = { style: BorderStyle.NONE, size: 0, color: DOCX_COLORS.white };
-  return { top: border, bottom: border, left: border, right: border };
-}
-
-function lineBorder(color = DOCX_COLORS.grayBorder, size = 8) {
-  return { style: BorderStyle.SINGLE, size, color };
-}
-
-function cardBorders(color = DOCX_COLORS.grayBorder, size = 8) {
-  const border = lineBorder(color, size);
-  return { top: border, bottom: border, left: border, right: border };
+function docBullet(text) {
+  return new Paragraph({
+    bullet: { level: 0 },
+    spacing: { after: 80 },
+    children: [textRun(text)]
+  });
 }
 
 function cell(text, bold = false, options = {}) {
   return new TableCell({
     columnSpan: options.columnSpan,
-    width: options.width,
     verticalAlign: options.verticalAlign || VerticalAlign.CENTER,
     shading: options.fill
       ? {
           type: ShadingType.CLEAR,
           fill: options.fill,
           color: 'auto'
-      }
+        }
       : undefined,
     margins: { top: 100, bottom: 100, left: 120, right: 120 },
-    borders: options.noBorder ? emptyBorders() : cardBorders(options.borderColor || DOCX_COLORS.grayBorder, options.borderSize || 1),
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder },
+      left: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder },
+      right: { style: BorderStyle.SINGLE, size: 1, color: options.borderColor || DOCX_COLORS.grayBorder }
+    },
     children: [
       new Paragraph({
         alignment: options.alignment,
@@ -370,6 +366,140 @@ function docTable(headers, rows, options = {}) {
 
 function mapRows(items, mapper) {
   return Array.isArray(items) && items.length ? items.map(mapper) : [];
+}
+
+function xmlEscape(value) {
+  return safeText(value)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function wordText(text, options = {}) {
+  const color = options.color || DOCX_COLORS.navy;
+  const size = options.size || 20;
+  const bold = options.bold ? '<w:b/>' : '';
+  const italic = options.italic ? '<w:i/>' : '';
+  return `<w:r><w:rPr>${bold}${italic}<w:color w:val="${color}"/><w:sz w:val="${size}"/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+}
+
+function wordParagraph(text, options = {}) {
+  const style = options.style ? `<w:pStyle w:val="${options.style}"/>` : '';
+  const align = options.align ? `<w:jc w:val="${options.align}"/>` : '';
+  const spacing = '<w:spacing w:after="160"/>';
+  return `<w:p><w:pPr>${style}${align}${spacing}</w:pPr>${wordText(text, options)}</w:p>`;
+}
+
+function wordPageBreak() {
+  return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+}
+
+function wordCell(text, options = {}) {
+  const fill = options.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${options.fill}"/>` : '';
+  const color = options.color || DOCX_COLORS.navy;
+  const bold = options.bold ? '<w:b/>' : '';
+  return `<w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/>${fill}<w:tcMar><w:top w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:r><w:rPr>${bold}<w:color w:val="${color}"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r></w:p></w:tc>`;
+}
+
+function wordTable(headers, rows) {
+  const safeRows = Array.isArray(rows) && rows.length ? rows : [['Sem dados estruturados.']];
+  const headerXml = `<w:tr>${headers.map((header) => wordCell(header, { bold: true, fill: DOCX_COLORS.blue, color: DOCX_COLORS.white })).join('')}</w:tr>`;
+  const rowsXml = safeRows.map((row, index) => `<w:tr>${row.map((value) => wordCell(value, { fill: index % 2 === 0 ? DOCX_COLORS.white : DOCX_COLORS.grayFill })).join('')}</w:tr>`).join('');
+  return `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:left w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:bottom w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:right w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:insideH w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/><w:insideV w:val="single" w:sz="4" w:color="${DOCX_COLORS.grayBorder}"/></w:tblBorders></w:tblPr>${headerXml}${rowsXml}</w:tbl>`;
+}
+
+function buildTemplateAppendixXml(assessment) {
+  const summary = assessment.executive_summary || {};
+  const client = assessment.client || {};
+  const children = [
+    wordPageBreak(),
+    wordParagraph('Assessment estruturado gerado pela IA', { style: 'Ttulo1', bold: true, color: DOCX_COLORS.blueDark, size: 28 }),
+    wordParagraph(`Cliente: ${safeText(client.name)} | Area: ${safeText(client.business_area)}`, { bold: true, color: DOCX_COLORS.blueDark }),
+    wordParagraph('Resumo executivo', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordParagraph(summary.current_state || 'Sem resumo executivo estruturado.'),
+    wordParagraph('Principais dores', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Dor identificada'], (summary.main_pains || []).map((pain) => [pain])),
+    wordParagraph('Mapa de softwares', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Area', 'Software', 'Uso', 'Dores', 'Oportunidades'], mapRows(assessment.software_map, (item) => [
+      item.area,
+      item.software,
+      item.usage,
+      item.pain_points,
+      item.opportunities
+    ])),
+    wordParagraph('Gaps e recomendacoes', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Gap', 'Categoria', 'Impacto', 'Recomendacao', 'Status'], mapRows(assessment.gap_map, (item) => [
+      item.description,
+      item.category,
+      item.impact,
+      item.recommendation,
+      item.status
+    ])),
+    wordParagraph('Radar de gaps', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }),
+    wordTable(['Categoria', 'Score', 'Gaps fonte'], mapRows(assessment.gap_radar, (item) => [
+      item.category,
+      item.score,
+      item.source_gaps
+    ])),
+    wordParagraph('Fluxos', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 })
+  ];
+
+  (assessment.flows || []).forEach((flow) => {
+    children.push(wordParagraph(`${safeText(flow.type)} - ${safeText(flow.name)}`, { bold: true, color: DOCX_COLORS.blueDark }));
+    children.push(wordTable(['Ordem', 'Area', 'Atividade', 'Sistema', 'Entrada', 'Saida', 'Responsavel', 'Problema'], mapRows(flow.steps, (step) => [
+      step.order,
+      step.area,
+      step.activity,
+      step.system,
+      step.input,
+      step.output,
+      step.responsible,
+      step.issue
+    ])));
+  });
+
+  children.push(wordParagraph('Roadmap', { style: 'Ttulo2', bold: true, color: DOCX_COLORS.navy, size: 24 }));
+  children.push(wordTable(['Fase', 'Titulo', 'Descricao', 'Dependencias'], mapRows(assessment.roadmap, (item) => [
+    item.phase,
+    item.title,
+    item.description,
+    item.dependencies
+  ])));
+
+  return children.join('');
+}
+
+function replaceWordText(documentXml, fromText, toText) {
+  if (!fromText || !toText || fromText === toText) return documentXml;
+  return documentXml.split(xmlEscape(fromText)).join(xmlEscape(toText));
+}
+
+async function buildTemplateBasedAssessmentDocx(assessment) {
+  if (!fs.existsSync(officialTemplatePath)) {
+    return null;
+  }
+
+  const templateBuffer = fs.readFileSync(officialTemplatePath);
+  const zip = await JSZip.loadAsync(templateBuffer);
+  const documentFile = zip.file('word/document.xml');
+  if (!documentFile) {
+    throw new Error('Template DOCX oficial sem word/document.xml.');
+  }
+
+  const client = assessment.client || {};
+  let documentXml = await documentFile.async('string');
+  documentXml = replaceWordText(documentXml, 'XMOBOTS - Arquitetura de Processos e Sistemas', `${safeText(client.name || 'Cliente')} - Arquitetura de Processos e Sistemas`);
+  documentXml = replaceWordText(documentXml, 'XMOBOTS', safeText(client.name || 'Cliente'));
+
+  zip.file('word/document.xml', documentXml);
+  return zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 }
+  });
 }
 
 function sectionTitle(number, title, subtitle) {
@@ -451,58 +581,51 @@ function buildCover(assessment) {
   return [
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
-      layout: TableLayoutType.FIXED,
       rows: [
         new TableRow({
           children: [
-            visualCell('ASSESSMENT REPORT BUILDER', ['Diagnostico de processos, sistemas, gaps e roadmap'], {
+            cell('ASSESSMENT DE ENGENHARIA', true, {
               columnSpan: 2,
               fill: DOCX_COLORS.blue,
-              titleColor: DOCX_COLORS.white,
-              bodyColor: DOCX_COLORS.white,
-              titleSize: 22,
-              bodySize: 18,
-              alignment: AlignmentType.CENTER,
-              borderColor: DOCX_COLORS.blue
+              color: DOCX_COLORS.white,
+              size: 34,
+              alignment: AlignmentType.CENTER
             })
           ]
         }),
         new TableRow({
           children: [
-            visualCell(textValue(client.name, 'Cliente nao informado'), [textValue(client.business_area, 'Area principal nao informada')], {
+            cell(safeText(client.name || 'Cliente nao informado'), true, {
               columnSpan: 2,
               fill: DOCX_COLORS.blueLight,
-              titleColor: DOCX_COLORS.blueDark,
-              titleSize: 34,
-              bodySize: 20,
-              alignment: AlignmentType.CENTER,
-              borderColor: DOCX_COLORS.blueLight
+              color: DOCX_COLORS.blueDark,
+              size: 28,
+              alignment: AlignmentType.CENTER
             })
           ]
         }),
         new TableRow({
           children: [
-            visualCell('Escopo', [textValue(client.assessment_scope, 'Escopo pendente de revisao')], {
+            cell('Arquitetura de processos, sistemas, gaps e roadmap de evolucao', false, {
+              columnSpan: 2,
               fill: DOCX_COLORS.white,
-              borderColor: DOCX_COLORS.grayBorder
-            }),
-            visualCell('Status', [
-              `Geracao: ${textValue(metadata.generation_mode, 'nao informada')}`,
-              `Versao: ${textValue(metadata.version, serviceVersion)}`,
-              `Criado em: ${textValue(metadata.created_at, '-')}`
-            ], {
-              fill: DOCX_COLORS.grayFill,
-              borderColor: DOCX_COLORS.grayBorder
+              color: DOCX_COLORS.grayText,
+              size: 20,
+              alignment: AlignmentType.CENTER
             })
           ]
-        })
+        }),
+        new TableRow({ children: [cell('Cliente', true, { fill: DOCX_COLORS.grayFill }), cell(client.name, false)] }),
+        new TableRow({ children: [cell('Area principal', true, { fill: DOCX_COLORS.grayFill }), cell(client.business_area, false)] }),
+        new TableRow({ children: [cell('Escopo', true, { fill: DOCX_COLORS.grayFill }), cell(client.assessment_scope, false)] }),
+        new TableRow({ children: [cell('Status do assessment', true, { fill: DOCX_COLORS.grayFill }), cell(`${safeText(metadata.status)} | ${safeText(metadata.generation_mode)}`, false)] })
       ]
     }),
-    docParagraph('Documento editavel gerado a partir do assessment.json validado. Requer revisao humana antes de envio oficial.', {
+    docParagraph('Documento gerado pelo Assessment Report Builder a partir do assessment.json validado. Conteudo editavel e pendente de revisao humana antes de envio oficial.', {
       alignment: AlignmentType.CENTER,
       color: DOCX_COLORS.grayText,
       size: 18,
-      before: 260
+      before: 300
     }),
     pageBreak()
   ];
@@ -511,229 +634,24 @@ function buildCover(assessment) {
 function buildExecutiveSnapshot(assessment) {
   const summary = assessment.executive_summary || {};
   return [
-    sectionTitle('01', 'Leitura executiva', 'Resumo objetivo do contexto, maturidade percebida e dores principais.'),
-    callout('Resumo do estado atual', textValue(summary.current_state, 'Resumo executivo nao identificado no rascunho.'), DOCX_COLORS.blueLight),
-    visualGrid([
-      { title: 'Maturidade geral', lines: [textValue(summary.overall_maturity, 'Nao avaliada')] },
-      { title: 'Confianca da leitura', lines: [textValue(summary.confidence, 'Nao avaliada')] },
-      { title: 'Evidencia principal', lines: [textValue(summary.evidence, 'Nao informada')] }
-    ], 3, (item) => visualCell(item.title, item.lines, {
-      fill: DOCX_COLORS.grayFill,
-      borderColor: DOCX_COLORS.grayBorder,
-      alignment: AlignmentType.CENTER
-    })),
-    docParagraph('Principais dores identificadas', { heading: HeadingLevel.HEADING_2, before: 220 }),
-    visualGrid(compactLines(summary.main_pains, 6).map((pain, index) => ({
-      title: `Dor ${index + 1}`,
-      lines: [pain]
-    })), 2, (item) => visualCell(item.title, item.lines, {
-      fill: DOCX_COLORS.yellow,
-      borderColor: DOCX_COLORS.yellowDark
-    }))
-  ];
-}
-
-function buildSoftwareLandscape(assessment) {
-  const software = Array.isArray(assessment.software_map) ? assessment.software_map : [];
-  const processes = Array.isArray(assessment.process_map) ? assessment.process_map : [];
-  return [
-    pageBreak(),
-    sectionTitle('02', 'Mapa de softwares e processos', 'Representacao visual editavel dos sistemas, usos, integracoes e processos identificados.'),
-    docParagraph('Mapa de softwares', { heading: HeadingLevel.HEADING_2 }),
-    visualGrid(software, 3, (item) => visualCell(textValue(item.software, 'Software nao informado'), [
-      `Area: ${textValue(item.area, 'nao informada')}`,
-      `Uso: ${textValue(item.usage, 'nao informado')}`,
-      `Integracoes: ${textValue(item.integrations, 'nao evidenciadas')}`,
-      `Dores: ${textValue(item.pain_points, 'nao evidenciadas')}`
-    ], {
-      fill: DOCX_COLORS.white,
-      borderColor: DOCX_COLORS.blueDark
-    })),
-    docParagraph('Processos identificados', { heading: HeadingLevel.HEADING_2, before: 260 }),
-    visualGrid(processes, 2, (item) => visualCell(textValue(item.name, 'Processo nao informado'), [
-      `Area responsavel: ${textValue(item.owner_area, 'nao informada')}`,
-      `Sistemas: ${textValue(item.systems, 'nao evidenciados')}`,
-      `Dores: ${textValue(item.pain_points, 'nao evidenciadas')}`,
-      `Evidencia: ${textValue(item.evidence, 'nao informada')}`
-    ], {
-      fill: DOCX_COLORS.cyanLight,
-      borderColor: DOCX_COLORS.teal
-    }))
-  ];
-}
-
-function buildRadarVisualRows(assessment) {
-  const rows = Array.isArray(assessment.gap_radar) ? assessment.gap_radar : [];
-  return rows.length ? rows : [{ category: 'Maturidade nao evidenciada', score: 0, source_gaps: [] }];
-}
-
-function buildGapAnalysis(assessment) {
-  const gapCards = Array.isArray(assessment.gap_map) ? assessment.gap_map.slice(0, 8) : [];
-  const radarRows = buildRadarVisualRows(assessment);
-  return [
-    pageBreak(),
-    sectionTitle('03', 'Gaps e maturidade', 'Gaps em formato visual e radar editavel baseado na criticidade informada no assessment.'),
-    docParagraph('Mapa de gaps', { heading: HeadingLevel.HEADING_2 }),
-    visualGrid(gapCards, 2, (item) => visualCell(textValue(item.category, 'Gap'), [
-      textValue(item.description, 'Descricao nao informada'),
-      `Impacto: ${textValue(item.impact, 'nao avaliado')}`,
-      `Recomendacao: ${textValue(item.recommendation, 'nao informada')}`
-    ], {
-      fill: impactFill(item.impact),
-      borderColor: scoreColor(item.impact === 'Crítico' ? 5 : item.impact === 'Alto' ? 4 : item.impact === 'Médio' ? 3 : 2),
-      bodyColor: DOCX_COLORS.navy
-    })),
-    docParagraph('Radar de gaps', { heading: HeadingLevel.HEADING_2, before: 260 }),
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      layout: TableLayoutType.FIXED,
-      rows: [
-        new TableRow({
-          children: radarRows.slice(0, 6).map((item) => {
-            const score = Math.max(0, Math.min(5, Math.round(Number(item.score || 0))));
-            return visualCell(textValue(item.category, 'Categoria'), [
-              `Atual: ${score}/5`,
-              `Meta: 5/5`,
-              `Gaps: ${textValue(item.source_gaps, 'nao informados')}`,
-              `${'■'.repeat(score)}${'□'.repeat(5 - score)}`
-            ], {
-              fill: scoreColor(score),
-              borderColor: DOCX_COLORS.blueDark,
-              alignment: AlignmentType.CENTER,
-              titleSize: 15,
-              bodySize: 15
-            });
-          })
-        })
-      ]
-    }),
-    docParagraph('Premissa: este radar e editavel no Word e reflete os scores do assessment.json. O grafico Radar nativo do Office fica como proxima etapa de OOXML/chart, para evitar falso objeto nativo.', {
-      color: DOCX_COLORS.grayText,
-      size: 16
+    sectionTitle('01', 'Introducao e leitura executiva', 'Contexto consolidado a partir do documento importado e da geracao IA validada pelo schema.'),
+    docParagraph('Objetivo do documento', { heading: HeadingLevel.HEADING_2 }),
+    docParagraph('Este assessment consolida o processo atual, sistemas utilizados, gargalos, riscos e oportunidades de evolucao para apoiar uma jornada de transformacao em ondas.'),
+    callout('Leitura executiva', summary.current_state || 'Sem resumo executivo estruturado.'),
+    docParagraph('Principais dores', { heading: HeadingLevel.HEADING_2 }),
+    ...(summary.main_pains || ['Sem dores estruturadas.']).map((pain) => docBullet(pain)),
+    docParagraph(`Maturidade geral: ${safeText(summary.overall_maturity)} | Confianca: ${safeText(summary.confidence)}`, {
+      bold: true,
+      color: DOCX_COLORS.blueDark
     })
   ];
 }
 
-function buildFlowVisual(flow) {
-  const steps = Array.isArray(flow.steps) ? flow.steps : [];
-  const visualSteps = steps.length ? steps : [{ order: 1, activity: 'Fluxo nao estruturado', area: '-', system: '-', input: '-', output: '-', issue: '-' }];
-  const rows = [];
-  for (let index = 0; index < visualSteps.length; index += 3) {
-    const rowSteps = visualSteps.slice(index, index + 3);
-    while (rowSteps.length < 3) rowSteps.push(null);
-    rows.push(new TableRow({
-      children: rowSteps.map((step) => {
-        if (!step) return spacerCell();
-        return visualCell(`${textValue(step.order, index + 1)}. ${textValue(step.activity, 'Atividade')}`, [
-          `Area: ${textValue(step.area, '-')}`,
-          `Sistema: ${textValue(step.system, '-')}`,
-          `Entrada: ${textValue(step.input, '-')}`,
-          `Saida: ${textValue(step.output, '-')}`,
-          `Ponto critico: ${textValue(step.issue, 'nao informado')}`
-        ], {
-          fill: flow.type === 'TO-BE' ? DOCX_COLORS.green : DOCX_COLORS.blueLight,
-          borderColor: flow.type === 'TO-BE' ? DOCX_COLORS.greenDark : DOCX_COLORS.blueDark,
-          titleSize: 15,
-          bodySize: 14
-        });
-      })
-    }));
-    if (index + 3 < visualSteps.length) {
-      rows.push(new TableRow({
-        children: [
-          visualCell('continua', ['sequencia do fluxo abaixo'], {
-            columnSpan: 3,
-            fill: DOCX_COLORS.white,
-            borderColor: DOCX_COLORS.grayBorder,
-            alignment: AlignmentType.CENTER,
-            titleSize: 14,
-            bodySize: 14
-          })
-        ]
-      }));
-    }
-  }
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    layout: TableLayoutType.FIXED,
-    rows
-  });
-}
-
-function buildFlowSection(assessment) {
-  const children = [
-    pageBreak(),
-    sectionTitle('04', 'Fluxos AS-IS e TO-BE', 'Fluxos visuais editaveis reconstruidos a partir das etapas extraidas pela IA.')
-  ];
-  const flows = Array.isArray(assessment.flows) ? assessment.flows : [];
-  if (!flows.length) {
-    children.push(visualGrid([{ title: 'Fluxos nao identificados', lines: ['O rascunho nao trouxe etapas suficientes para montar um fluxo visual.'] }], 1, (item) => visualCell(item.title, item.lines, { fill: DOCX_COLORS.grayFill, borderColor: DOCX_COLORS.grayBorder })));
-    return children;
-  }
-  flows.forEach((flow) => {
-    children.push(docParagraph(`${textValue(flow.type, 'Fluxo')} - ${textValue(flow.name, 'Sem nome')}`, { heading: HeadingLevel.HEADING_2, before: 240 }));
-    children.push(callout('Evidencia do fluxo', `${textValue(flow.evidence, 'Nao informada')} | Confianca: ${textValue(flow.confidence, 'Nao avaliada')}`, flow.type === 'TO-BE' ? DOCX_COLORS.green : DOCX_COLORS.cyanLight));
-    children.push(buildFlowVisual(flow));
-  });
-  return children;
-}
-
-function buildRecommendationsAndRoadmap(assessment) {
-  const recommendations = Array.isArray(assessment.recommendations) ? assessment.recommendations : [];
-  const roadmap = Array.isArray(assessment.roadmap) ? assessment.roadmap : [];
-  const risks = Array.isArray(assessment.risks) ? assessment.risks : [];
-  const questions = Array.isArray(assessment.open_questions) ? assessment.open_questions : [];
+function buildSoftwareLandscape(assessment) {
   return [
     pageBreak(),
-    sectionTitle('05', 'Riscos, recomendacoes e roadmap', 'Priorizacao visual para transformar diagnostico em plano de execucao.'),
-    docParagraph('Riscos identificados', { heading: HeadingLevel.HEADING_2 }),
-    visualGrid(risks.slice(0, 6), 2, (item) => visualCell(textValue(item.description, 'Risco'), [
-      `Probabilidade: ${textValue(item.probability, 'nao avaliada')}`,
-      `Impacto: ${textValue(item.impact, 'nao avaliado')}`,
-      `Mitigacao: ${textValue(item.mitigation, 'nao informada')}`
-    ], {
-      fill: impactFill(item.impact),
-      borderColor: DOCX_COLORS.redDark
-    })),
-    docParagraph('Recomendacoes', { heading: HeadingLevel.HEADING_2, before: 260 }),
-    visualGrid(recommendations.slice(0, 6), 2, (item) => visualCell(textValue(item.title, 'Recomendacao'), [
-      textValue(item.description, 'Descricao nao informada'),
-      `Prioridade: ${textValue(item.priority, 'nao avaliada')}`,
-      `Esforco: ${textValue(item.effort, 'nao avaliado')}`,
-      `Gaps relacionados: ${textValue(item.related_gaps, 'nao informados')}`
-    ], {
-      fill: item.priority === 'Crítica' || item.priority === 'Alta' ? DOCX_COLORS.orange : DOCX_COLORS.green,
-      borderColor: item.priority === 'Crítica' || item.priority === 'Alta' ? DOCX_COLORS.orangeDark : DOCX_COLORS.greenDark
-    })),
-    docParagraph('Roadmap em ondas', { heading: HeadingLevel.HEADING_2, before: 260 }),
-    visualGrid(roadmap, 3, (item) => visualCell(textValue(item.phase, 'Onda'), [
-      textValue(item.title, 'Titulo nao informado'),
-      textValue(item.description, 'Descricao nao informada'),
-      `Dependencias: ${textValue(item.dependencies, 'nao informadas')}`
-    ], {
-      fill: DOCX_COLORS.blueLight,
-      borderColor: DOCX_COLORS.blueDark,
-      alignment: AlignmentType.CENTER
-    })),
-    ...(questions.length ? [
-      docParagraph('Perguntas abertas', { heading: HeadingLevel.HEADING_2, before: 260 }),
-      visualGrid(questions.slice(0, 4), 2, (item) => visualCell(textValue(item.topic, 'Pergunta'), [
-        textValue(item.question, 'Pergunta nao informada'),
-        `Responsavel: ${textValue(item.responsible, 'nao informado')}`,
-        `Status: ${textValue(item.status, 'Aberta')}`
-      ], {
-        fill: DOCX_COLORS.grayFill,
-        borderColor: DOCX_COLORS.grayBorder
-      }))
-    ] : [])
-  ];
-}
-
-function buildAuditAppendix(assessment) {
-  return [
-    pageBreak(),
-    sectionTitle('AP', 'Apendice tecnico', 'Tabelas mantidas apenas para auditoria, revisao e rastreabilidade do assessment.json.'),
-    docParagraph('Softwares', { heading: HeadingLevel.HEADING_2 }),
+    sectionTitle('02', 'Visao geral de sistemas e processos', 'Mapa editavel dos softwares e processos identificados no assessment.'),
+    docParagraph('Ferramentas e recursos utilizados', { heading: HeadingLevel.HEADING_2 }),
     docTable(['Area', 'Software', 'Uso', 'Dores', 'Integracoes', 'Oportunidades'], mapRows(assessment.software_map, (item) => [
       item.area,
       item.software,
@@ -742,13 +660,176 @@ function buildAuditAppendix(assessment) {
       item.integrations,
       item.opportunities
     ]), { fixed: true }),
-    docParagraph('Gaps', { heading: HeadingLevel.HEADING_2 }),
+    docParagraph('Mapa de processos', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Processo', 'Area responsavel', 'Sistemas', 'Dores', 'Evidencia'], mapRows(assessment.process_map, (item) => [
+      item.name,
+      item.owner_area,
+      item.systems,
+      item.pain_points,
+      item.evidence
+    ]), { fixed: true })
+  ];
+}
+
+function buildGapAnalysis(assessment) {
+  const radarRows = mapRows(assessment.gap_radar, (item) => item).map((item) => {
+    const score = Math.max(0, Math.min(5, Math.round(Number(item.score || 0))));
+    return new TableRow({
+      children: [
+        cell(item.category, true, { fill: DOCX_COLORS.grayFill }),
+        ...[0, 1, 2, 3, 4, 5].map((value) => cell(value <= score ? 'X' : '', false, {
+          fill: value <= score ? scoreColor(score) : DOCX_COLORS.white,
+          alignment: AlignmentType.CENTER,
+          size: 18
+        })),
+        cell(item.score, true, {
+          fill: scoreColor(score),
+          alignment: AlignmentType.CENTER
+        }),
+        cell(item.source_gaps, false)
+      ]
+    });
+  });
+
+  return [
+    pageBreak(),
+    sectionTitle('03', 'Analise de gaps e maturidade', 'Gaps classificados e radar em matriz editavel para ajuste no Word.'),
     docTable(['Gap', 'Categoria', 'Impacto', 'Classificacao', 'Recomendacao', 'Status'], mapRows(assessment.gap_map, (item) => [
       item.description,
       item.category,
       item.impact,
       item.classification,
       item.recommendation,
+      item.status
+    ]), { fixed: true }),
+    docParagraph('Radar de gaps', { heading: HeadingLevel.HEADING_2 }),
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.FIXED,
+      rows: [
+        new TableRow({
+          tableHeader: true,
+          children: ['Categoria', '0', '1', '2', '3', '4', '5', 'Score', 'Gaps fonte'].map((header) => cell(header, true, {
+            fill: DOCX_COLORS.blue,
+            color: DOCX_COLORS.white,
+            size: 16,
+            alignment: AlignmentType.CENTER
+          }))
+        }),
+        ...(radarRows.length ? radarRows : [new TableRow({ children: [cell('Sem radar estruturado', false, { columnSpan: 9 })] })])
+      ]
+    }),
+    docParagraph('Observacao: o radar acima e uma matriz Word editavel. Grafico Office nativo ainda depende de uma etapa especifica de geracao de chart OOXML.', {
+      color: DOCX_COLORS.grayText,
+      size: 17
+    })
+  ];
+}
+
+function buildFlowSection(assessment) {
+  const children = [
+    pageBreak(),
+    sectionTitle('04', 'Fluxos AS-IS e TO-BE', 'Fluxos reconstruidos com tabelas editaveis, preservando etapas, areas, sistemas, entradas, saidas e problemas.')
+  ];
+
+  (assessment.flows || []).forEach((flow, flowIndex) => {
+    const steps = Array.isArray(flow.steps) ? flow.steps : [];
+    const visibleSteps = steps.slice(0, 6);
+    children.push(docParagraph(`${safeText(flow.type)} - ${safeText(flow.name)}`, { heading: HeadingLevel.HEADING_2 }));
+    children.push(callout('Evidencia', `${safeText(flow.evidence)} | Confianca: ${safeText(flow.confidence)}`, flowIndex % 2 === 0 ? DOCX_COLORS.blueLight : DOCX_COLORS.cyanLight));
+    children.push(new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.FIXED,
+      rows: [
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(`Etapa ${safeText(step.order)}`, true, {
+                fill: flow.type === 'TO-BE' ? DOCX_COLORS.green : DOCX_COLORS.yellow,
+                alignment: AlignmentType.CENTER,
+                size: 17
+              }))
+            : [cell('Sem etapas estruturadas', true, { fill: DOCX_COLORS.grayFill })]
+        }),
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(step.activity, true, { alignment: AlignmentType.CENTER, size: 17 }))
+            : [cell('Sem dados', false)]
+        }),
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(`${safeText(step.area)} | ${safeText(step.system)}`, false, {
+                fill: DOCX_COLORS.grayFill,
+                alignment: AlignmentType.CENTER,
+                size: 16
+              }))
+            : [cell('Sem dados', false)]
+        }),
+        new TableRow({
+          children: visibleSteps.length
+            ? visibleSteps.map((step) => cell(step.issue || 'Sem problema registrado', false, {
+                fill: impactFill(step.issue || ''),
+                alignment: AlignmentType.CENTER,
+                size: 16
+              }))
+            : [cell('Sem dados', false)]
+        })
+      ]
+    }));
+    if (steps.length > visibleSteps.length) {
+      children.push(docParagraph(`Fluxo visual limitado aos 6 primeiros passos para preservar legibilidade. A tabela detalhada abaixo mantem os ${steps.length} passos.`, {
+        color: DOCX_COLORS.grayText,
+        size: 17
+      }));
+    }
+    children.push(docTable(['Ordem', 'Area', 'Atividade', 'Sistema', 'Entrada', 'Saida', 'Responsavel', 'Problema'], mapRows(steps, (step) => [
+      step.order,
+      step.area,
+      step.activity,
+      step.system,
+      step.input,
+      step.output,
+      step.responsible,
+      step.issue
+    ]), { fixed: true, headerFill: flow.type === 'TO-BE' ? '2E7D32' : DOCX_COLORS.blueDark }));
+  });
+
+  return children;
+}
+
+function buildRecommendationsAndRoadmap(assessment) {
+  return [
+    pageBreak(),
+    sectionTitle('05', 'Direcionamentos, riscos e roadmap', 'Priorizacao editavel para transformar diagnostico em plano de execucao.'),
+    docParagraph('Riscos', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Risco', 'Probabilidade', 'Impacto', 'Mitigacao', 'Evidencia'], mapRows(assessment.risks, (item) => [
+      item.description,
+      item.probability,
+      item.impact,
+      item.mitigation,
+      item.evidence
+    ]), { fixed: true }),
+    docParagraph('Recomendacoes', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Prioridade', 'Titulo', 'Descricao', 'Esforco', 'Gaps relacionados', 'Status'], mapRows(assessment.recommendations, (item) => [
+      item.priority,
+      item.title,
+      item.description,
+      item.effort,
+      item.related_gaps,
+      item.status
+    ]), { fixed: true }),
+    docParagraph('Roadmap em ondas', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Fase', 'Titulo', 'Descricao', 'Dependencias', 'Recomendacoes relacionadas'], mapRows(assessment.roadmap, (item) => [
+      item.phase,
+      item.title,
+      item.description,
+      item.dependencies,
+      item.related_recommendations
+    ]), { fixed: true, headerFill: DOCX_COLORS.blueDark }),
+    docParagraph('Perguntas abertas', { heading: HeadingLevel.HEADING_2 }),
+    docTable(['Pergunta', 'Topico', 'Responsavel', 'Status'], mapRows(assessment.open_questions, (item) => [
+      item.question,
+      item.topic,
+      item.responsible,
       item.status
     ]), { fixed: true }),
     docParagraph('Controle de revisao', { heading: HeadingLevel.HEADING_2 }),
@@ -763,50 +844,12 @@ function buildDocxChildren(assessment) {
     ...buildSoftwareLandscape(assessment),
     ...buildGapAnalysis(assessment),
     ...buildFlowSection(assessment),
-    ...buildRecommendationsAndRoadmap(assessment),
-    ...buildAuditAppendix(assessment)
+    ...buildRecommendationsAndRoadmap(assessment)
   ];
 }
 
 async function buildAssessmentDocx(assessment) {
-  const client = assessment.client || {};
-  const doc = new Document({
-    creator: 'Assessment Report Builder',
-    title: `${textValue(client.name, 'Assessment')} - Assessment`,
-    description: 'Assessment visual editavel gerado a partir do assessment.json validado.',
-    sections: [{
-      properties: {
-        page: {
-          margin: { top: 720, right: 720, bottom: 720, left: 720 }
-        }
-      },
-      headers: {
-        default: new Header({
-          children: [docParagraph('Assessment Report Builder', {
-            alignment: AlignmentType.RIGHT,
-            color: DOCX_COLORS.grayText,
-            size: 16,
-            after: 0
-          })]
-        })
-      },
-      footers: {
-        default: new Footer({
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.RIGHT,
-              children: [
-                textRun('Pagina ', { color: DOCX_COLORS.grayText, size: 16 }),
-                new TextRun({ children: [PageNumber.CURRENT], color: DOCX_COLORS.grayText, size: 16 })
-              ]
-            })
-          ]
-        })
-      },
-      children: buildDocxChildren(assessment)
-    }]
-  });
-  return Packer.toBuffer(doc);
+  return renderOperationalAssessmentDocx(assessment);
 }
 
 function normalizeSource(source, fallbackType) {
@@ -1466,103 +1509,6 @@ function createGeminiModel() {
       responseMimeType: 'application/json'
     }
   });
-}
-
-function textValue(value, fallback = '-') {
-  if (value == null || value === '') return fallback;
-  if (Array.isArray(value)) {
-    const values = value.map((item) => textValue(item, '')).filter(Boolean);
-    return values.length ? values.join('; ') : fallback;
-  }
-  const text = String(value).replace(/\s+/g, ' ').trim();
-  return text || fallback;
-}
-
-function listValues(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((item) => textValue(item, '')).filter(Boolean);
-}
-
-function paragraphRun(text, options = {}) {
-  return new Paragraph({
-    alignment: options.alignment,
-    spacing: { before: options.before || 0, after: options.after == null ? 70 : options.after, line: options.line || 240 },
-    children: [
-      textRun(text, {
-        bold: options.bold,
-        italics: options.italics,
-        color: options.color || DOCX_COLORS.navy,
-        size: options.size || 18,
-        allCaps: options.allCaps
-      })
-    ]
-  });
-}
-
-function visualCell(title, lines = [], options = {}) {
-  const bodyLines = Array.isArray(lines) ? lines : [lines];
-  const cleanLines = bodyLines.map((line) => textValue(line, '')).filter(Boolean);
-  return new TableCell({
-    columnSpan: options.columnSpan,
-    width: options.width,
-    verticalAlign: options.verticalAlign || VerticalAlign.CENTER,
-    shading: {
-      type: ShadingType.CLEAR,
-      fill: options.fill || DOCX_COLORS.white,
-      color: 'auto'
-    },
-    margins: {
-      top: options.marginTop || 170,
-      bottom: options.marginBottom || 170,
-      left: options.marginLeft || 170,
-      right: options.marginRight || 170
-    },
-    borders: options.noBorder ? emptyBorders() : cardBorders(options.borderColor || DOCX_COLORS.blueDark, options.borderSize || 8),
-    children: [
-      paragraphRun(title, {
-        bold: true,
-        color: options.titleColor || DOCX_COLORS.navy,
-        size: options.titleSize || 17,
-        alignment: options.alignment,
-        after: cleanLines.length ? 70 : 0
-      }),
-      ...cleanLines.map((line) => paragraphRun(line, {
-        color: options.bodyColor || DOCX_COLORS.grayText,
-        size: options.bodySize || 16,
-        alignment: options.alignment,
-        after: 45
-      }))
-    ]
-  });
-}
-
-function spacerCell() {
-  return visualCell('', [], { noBorder: true, fill: DOCX_COLORS.white });
-}
-
-function visualGrid(items, columns, renderer) {
-  const rows = [];
-  const source = Array.isArray(items) && items.length ? items : [];
-  for (let index = 0; index < source.length; index += columns) {
-    const rowItems = source.slice(index, index + columns);
-    while (rowItems.length < columns) rowItems.push(null);
-    rows.push(new TableRow({
-      children: rowItems.map((item, offset) => (item ? renderer(item, index + offset) : spacerCell()))
-    }));
-  }
-  if (!rows.length) {
-    rows.push(new TableRow({ children: [visualCell('Sem dados estruturados', ['A IA nao identificou informacoes suficientes para esta visao.'], { columnSpan: columns, fill: DOCX_COLORS.grayFill, borderColor: DOCX_COLORS.grayBorder })] }));
-  }
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    layout: TableLayoutType.FIXED,
-    rows
-  });
-}
-
-function compactLines(values, max = 3) {
-  const lines = listValues(values).slice(0, max);
-  return lines.length ? lines : ['Nao evidenciado no rascunho'];
 }
 
 async function generateGeminiJson(model, prompt) {

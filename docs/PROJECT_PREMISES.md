@@ -802,26 +802,3 @@ Nada que o usuário não consiga editar deve ser considerado saída oficial.
 Nada que não tenha evidência deve ser apresentado como fato.
 O link oficial do widget nunca muda.
 ```
-
----
-
-## 32. Estado operacional atual do export DOCX
-
-O export ativo do MVP usa renderer DOCX programatico visual-first no backend.
-
-```text
-assessment.json validado
-      ->
-backend/server.js
-      ->
-docx editavel com capa, cards, mapas, fluxos, radar visual editavel e apendice tecnico
-```
-
-Premissas deste corte:
-
-- nao usar o template operacional antigo como fonte principal do DOCX;
-- nao deixar conteudo fixo de cliente exemplo vazar para outro assessment;
-- usar tabelas Word apenas como estrutura editavel de layout/cartoes e como apendice tecnico;
-- manter o limite MVP de IA em 60000 caracteres;
-- manter schema, importacao e endpoint oficial sem mudanca de contrato;
-- radar nativo Office continua pendente como frente OOXML/chart especifica.
