@@ -100,6 +100,71 @@ function removePrimaryDetailTables(documentXml) {
   );
 }
 
+function tableCellTexts(tableXml) {
+  return Array.from(tableXml.matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)).map((cellMatch) => (
+    normalizeXmlText(cellMatch[0])
+  ));
+}
+
+function isEmptyOperationalTable(tableXml) {
+  const text = normalizeXmlText(tableXml);
+  const cells = tableCellTexts(tableXml).filter(Boolean);
+  if (!cells.length) return true;
+
+  const headerOnlyGroups = [
+    ['PERGUNTA', 'TOPICO', 'RESPONSAVEL', 'STATUS'],
+    ['TITULO', 'DESCRICAO', 'PRIORIDADE', 'ESFORCO', 'STATUS'],
+    ['FASE', 'TITULO', 'DESCRICAO', 'DEPENDENCIAS'],
+    ['RISCO', 'PROBABILIDADE', 'IMPACTO', 'MITIGACAO']
+  ];
+
+  return headerOnlyGroups.some((headers) => (
+    headers.every((header) => text.includes(header)) && cells.every((cell) => headers.includes(cell))
+  ));
+}
+
+function removeEmptyOperationalTables(documentXml) {
+  return documentXml.replace(
+    /<w:tbl\b[\s\S]*?<\/w:tbl>/g,
+    (tableXml) => (isEmptyOperationalTable(tableXml) ? '' : tableXml)
+  );
+}
+
+function isEmptyParagraph(paragraphXml) {
+  if (/<w:(drawing|pict|br)\b/.test(paragraphXml)) return false;
+  return !normalizeXmlText(paragraphXml);
+}
+
+function removeExcessEmptyParagraphs(documentXml) {
+  let emptyRun = 0;
+  return documentXml.replace(/<w:p\b[\s\S]*?<\/w:p>/g, (paragraphXml) => {
+    if (!isEmptyParagraph(paragraphXml)) {
+      emptyRun = 0;
+      return paragraphXml;
+    }
+
+    emptyRun += 1;
+    return emptyRun <= 1 ? paragraphXml : '';
+  });
+}
+
+function removeExactTextParagraph(documentXml, expectedText) {
+  return documentXml.replace(/<w:p\b[\s\S]*?<\/w:p>/g, (paragraphXml) => (
+    normalizeXmlText(paragraphXml) === expectedText ? '' : paragraphXml
+  ));
+}
+
+function removeOrphanOperationalHeadings(documentXml) {
+  const text = normalizeXmlText(documentXml);
+  let nextXml = documentXml;
+
+  if (!/\b(ABERTA|RESPONDIDA|DESCARTADA)\b/.test(text)) {
+    nextXml = removeExactTextParagraph(nextXml, 'PERGUNTAS ABERTAS');
+  }
+
+  return nextXml;
+}
+
 function polishDocumentXml(zip) {
   const documentPath = 'word/document.xml';
   const documentFile = zip.file(documentPath);
@@ -108,6 +173,9 @@ function polishDocumentXml(zip) {
   let documentXml = documentFile.asText();
   documentXml = removeEmptyVisualShapes(documentXml);
   documentXml = removePrimaryDetailTables(documentXml);
+  documentXml = removeEmptyOperationalTables(documentXml);
+  documentXml = removeOrphanOperationalHeadings(documentXml);
+  documentXml = removeExcessEmptyParagraphs(documentXml);
   zip.file(documentPath, documentXml);
 }
 
