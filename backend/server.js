@@ -166,6 +166,11 @@ function assessmentQualityWarnings(assessment) {
   return warnings;
 }
 
+function isAiProviderQuotaError(error) {
+  const message = String(error && error.message ? error.message : '');
+  return /429|quota|rate limit|too many requests|RESOURCE_EXHAUSTED/i.test(message);
+}
+
 function assessmentQualityBlockingIssues(assessment) {
   const review = assessment && assessment.quality_review && typeof assessment.quality_review === 'object'
     ? assessment.quality_review
@@ -1960,12 +1965,16 @@ app.post('/api/assessment/generate', async (req, res) => {
   } catch (error) {
     const isTimeout = error.message && /abort|timeout|timed out/i.test(error.message);
     const isJsonError = error.code === 'AI_RESPONSE_JSON_INVALID' || error.code === 'AI_RESPONSE_JSON_MISSING_OBJECT';
-    return res.status(isTimeout ? 504 : 502).json({
+    const isQuota = isAiProviderQuotaError(error);
+    const statusCode = isQuota ? 429 : (isTimeout ? 504 : 502);
+    return res.status(statusCode).json({
       ok: false,
-      error: isTimeout ? 'AI_ASSESSMENT_TIMEOUT' : (isJsonError ? error.code : 'AI_ASSESSMENT_GENERATION_FAILED'),
-      message: isTimeout
-        ? 'A IA excedeu o tempo de geracao. Para documentos grandes, use pipeline por chunks ou reduza temporariamente o arquivo de entrada.'
-        : (error.message || 'Falha ao gerar assessment com IA.'),
+      error: isQuota ? 'AI_PROVIDER_QUOTA_EXCEEDED' : (isTimeout ? 'AI_ASSESSMENT_TIMEOUT' : (isJsonError ? error.code : 'AI_ASSESSMENT_GENERATION_FAILED')),
+      message: isQuota
+        ? 'A cota do provedor Gemini foi excedida. Aguarde o reset da cota, use um modelo/plano com mais limite ou habilite billing no projeto.'
+        : (isTimeout
+            ? 'A IA excedeu o tempo de geracao. Para documentos grandes, use pipeline por chunks ou reduza temporariamente o arquivo de entrada.'
+            : (error.message || 'Falha ao gerar assessment com IA.')),
       details: error.parse_message || null,
       provider: 'gemini',
       model: geminiModel,
