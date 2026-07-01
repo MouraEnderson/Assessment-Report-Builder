@@ -72,7 +72,7 @@ function flowStepText(step, fallback) {
     safeText(step.system, '')
   ].filter(Boolean);
 
-  return parts.length ? truncateText(parts.join(' | '), 58) : fallback;
+  return parts.length ? compactShapeText(parts.join(' | '), 58) : fallback;
 }
 
 function buildFlowVisuals(flows) {
@@ -118,7 +118,7 @@ function buildNativeFlowPlaceholders(flows) {
   for (let flowIndex = 0; flowIndex < 2; flowIndex += 1) {
     const flow = visuals[flowIndex];
     result[`flow_shape_${flowIndex + 1}_title`] = flow
-      ? `${safeText(flow.flow_type, 'Pendente')} - ${truncateText(flow.flow_name, 52)}`
+      ? `${safeText(flow.flow_type, 'Pendente')} - ${compactShapeText(flow.flow_name, 52)}`
       : REMOVE_VISUAL_SHAPE_MARKER;
 
     for (let stepIndex = 0; stepIndex < 6; stepIndex += 1) {
@@ -138,11 +138,11 @@ function buildNativeFlowDetailPlaceholders(flows) {
 
   for (let index = 0; index < 8; index += 1) {
     const step = steps[index];
-    result[`flow_detail_shape_${index + 1}_title`] = step ? truncateText([
+    result[`flow_detail_shape_${index + 1}_title`] = step ? compactShapeText([
       safeText(step.order, ''),
       safeText(step.flow_name, '')
     ].filter(Boolean).join(' - '), 34) : REMOVE_VISUAL_SHAPE_MARKER;
-    result[`flow_detail_shape_${index + 1}_body`] = step ? truncateText([
+    result[`flow_detail_shape_${index + 1}_body`] = step ? compactShapeText([
       safeText(step.activity, ''),
       safeText(step.system, ''),
       safeText(step.responsible, '')
@@ -158,17 +158,50 @@ function truncateText(value, maxLength = 80) {
   return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
 }
 
+function compactShapeText(value, maxLength = 72) {
+  const text = safeText(value, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^Fluxo\s+AS-IS:\s*/i, '')
+    .replace(/^Fluxo\s+TO-BE:\s*/i, '')
+    .replace(/\bSOLIDWORKS\b/g, 'SW')
+    .replace(/\bSolidWorks\b/g, 'SW')
+    .replace(/\bStandard\b/g, '')
+    .replace(/\bGerenciamento de\b/gi, 'Gestao de')
+    .replace(/\bComponentes\b/gi, 'Comp.')
+    .replace(/\bInfraestrutura\b/gi, 'Infra.')
+    .replace(/\bPerformance\b/gi, 'Perf.')
+    .replace(/\bOtimização\b/g, 'Otimizacao')
+    .replace(/\bOtimização\b/gi, 'Otimizacao')
+    .trim();
+
+  if (!text) return '-';
+  if (text.length <= maxLength) return text;
+
+  const words = text.split(' ');
+  let result = '';
+  for (const word of words) {
+    const next = result ? `${result} ${word}` : word;
+    if (next.length > maxLength) break;
+    result = next;
+  }
+  return result || text.slice(0, maxLength).trim();
+}
+
+function joinShapeParts(parts, maxLength = 76) {
+  return compactShapeText(parts.filter(Boolean).join(' | '), maxLength);
+}
+
 function buildNativeSoftwarePlaceholders(softwareMap) {
   const systems = compactArray(softwareMap).slice(0, 8);
   const result = {};
 
   for (let index = 0; index < 8; index += 1) {
     const item = systems[index];
-    result[`software_shape_${index + 1}_title`] = item ? truncateText(item.software || item.area || `Sistema ${index + 1}`, 34) : REMOVE_VISUAL_SHAPE_MARKER;
-    result[`software_shape_${index + 1}_body`] = item ? truncateText([
+    result[`software_shape_${index + 1}_title`] = item ? compactShapeText(item.software || item.area || `Sistema ${index + 1}`, 36) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`software_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.area, ''),
       safeText(item.usage, '')
-    ].filter(Boolean).join(' | '), 64) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 66) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -180,11 +213,11 @@ function buildNativeProcessPlaceholders(processMap) {
 
   for (let index = 0; index < 6; index += 1) {
     const item = processes[index];
-    result[`process_shape_${index + 1}_title`] = item ? truncateText(item.name || `Processo ${index + 1}`, 38) : REMOVE_VISUAL_SHAPE_MARKER;
-    result[`process_shape_${index + 1}_body`] = item ? truncateText([
+    result[`process_shape_${index + 1}_title`] = item ? compactShapeText(item.name || `Processo ${index + 1}`, 40) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`process_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.owner_area, ''),
       safeText(item.systems, '')
-    ].filter(Boolean).join(' | '), 68) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 70) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -196,12 +229,11 @@ function buildNativeGapPlaceholders(gapMap) {
 
   for (let index = 0; index < 6; index += 1) {
     const item = gaps[index];
-    result[`gap_shape_${index + 1}_title`] = item ? truncateText(item.category || item.id || `Gap ${index + 1}`, 34) : REMOVE_VISUAL_SHAPE_MARKER;
-    result[`gap_shape_${index + 1}_body`] = item ? truncateText([
-      safeText(item.description, ''),
+    result[`gap_shape_${index + 1}_title`] = item ? compactShapeText(item.category || item.id || `Gap ${index + 1}`, 40) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`gap_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.impact, ''),
       safeText(item.recommendation, '')
-    ].filter(Boolean).join(' | '), 78) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 78) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -213,11 +245,11 @@ function buildNativeRiskPlaceholders(risks) {
 
   for (let index = 0; index < 5; index += 1) {
     const item = riskItems[index];
-    result[`risk_shape_${index + 1}_title`] = item ? truncateText(item.description || item.impact || item.probability || `Risco ${index + 1}`, 34) : REMOVE_VISUAL_SHAPE_MARKER;
-    result[`risk_shape_${index + 1}_body`] = item ? truncateText([
-      safeText(item.description, ''),
+    result[`risk_shape_${index + 1}_title`] = item ? compactShapeText(item.description || item.impact || item.probability || `Risco ${index + 1}`, 40) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`risk_shape_${index + 1}_body`] = item ? joinShapeParts([
+      safeText(item.impact, ''),
       safeText(item.mitigation, '')
-    ].filter(Boolean).join(' | '), 78) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 78) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -229,12 +261,11 @@ function buildNativeRoadmapPlaceholders(roadmap) {
 
   for (let index = 0; index < 5; index += 1) {
     const item = items[index];
-    result[`roadmap_shape_${index + 1}_title`] = item ? truncateText(item.title || item.phase || `Onda ${index + 1}`, 30) : REMOVE_VISUAL_SHAPE_MARKER;
-    result[`roadmap_shape_${index + 1}_body`] = item ? truncateText([
-      safeText(item.title, ''),
+    result[`roadmap_shape_${index + 1}_title`] = item ? compactShapeText(item.title || item.phase || `Onda ${index + 1}`, 32) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`roadmap_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.description, ''),
       safeText(item.dependencies, '')
-    ].filter(Boolean).join(' | '), 78) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 78) : REMOVE_VISUAL_SHAPE_MARKER;
   }
 
   return result;
@@ -473,7 +504,7 @@ function buildReportModel(assessment) {
     cover_assessment_type: cover.assessment_type,
     cover_generated_at: cover.generated_at,
     executive_current_state: executive.current_state,
-    executive_main_pains: executive.main_pains.map((pain) => `${pain}\n`),
+    executive_main_pains: executive.main_pains.length ? [executive.main_pains.join('\n- ')] : [],
     executive_overall_maturity: executive.overall_maturity,
     executive_evidence: executive.evidence,
     cover: {
