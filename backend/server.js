@@ -39,8 +39,8 @@ const geminiModel = configuredGeminiModel === 'gemini-1.5-flash' ? 'gemini-2.5-f
 const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 140000);
 const aiGenerationTimeoutMs = Number(process.env.AI_GENERATION_TIMEOUT_MS || 110000);
 const chunkPipelineThresholdCharacters = Number(process.env.AI_CHUNK_PIPELINE_THRESHOLD_CHARS || 45000);
-const aiChunkInputCharacters = Number(process.env.AI_CHUNK_INPUT_CHARS || 24000);
-const aiChunkConcurrency = Number(process.env.AI_CHUNK_CONCURRENCY || 3);
+const aiChunkInputCharacters = Number(process.env.AI_CHUNK_INPUT_CHARS || 16000);
+const aiChunkConcurrency = Number(process.env.AI_CHUNK_CONCURRENCY || 2);
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -1513,9 +1513,16 @@ function createGeminiModel() {
 }
 
 async function generateGeminiJson(model, prompt) {
-  const result = await model.generateContent(prompt, { timeout: aiGenerationTimeoutMs });
-  const response = result.response;
-  return extractJsonObject(response.text());
+  try {
+    const result = await model.generateContent(prompt, { timeout: aiGenerationTimeoutMs });
+    const response = result.response;
+    return extractJsonObject(response.text());
+  } catch (error) {
+    if (!error.code) {
+      error.code = 'AI_PROVIDER_CALL_FAILED';
+    }
+    throw error;
+  }
 }
 
 function splitTranscriptIntoChunks(text, chunkSize) {
@@ -1589,6 +1596,27 @@ function normalizeChunkEvidence(rawEvidence, chunkIndex) {
   };
 }
 
+function limitEvidencePackage(chunkEvidenceList) {
+  const chunks = chunkEvidenceList.map((chunk) => ({
+    chunk_id: chunk.chunk_id,
+    chunk_summary: chunk.chunk_summary,
+    client_context: chunk.client_context
+  }));
+
+  return {
+    chunk_count: chunkEvidenceList.length,
+    chunk_summaries: chunks,
+    systems: chunkEvidenceList.flatMap((chunk) => chunk.systems).slice(0, 18),
+    processes: chunkEvidenceList.flatMap((chunk) => chunk.processes).slice(0, 18),
+    gaps: chunkEvidenceList.flatMap((chunk) => chunk.gaps).slice(0, 20),
+    risks: chunkEvidenceList.flatMap((chunk) => chunk.risks).slice(0, 14),
+    flows: chunkEvidenceList.flatMap((chunk) => chunk.flows).slice(0, 14),
+    recommendations: chunkEvidenceList.flatMap((chunk) => chunk.recommendations).slice(0, 14),
+    roadmap: chunkEvidenceList.flatMap((chunk) => chunk.roadmap).slice(0, 10),
+    open_questions: chunkEvidenceList.flatMap((chunk) => chunk.open_questions).slice(0, 20)
+  };
+}
+
 function buildChunkEvidencePrompt(input, chunkText, chunkIndex, totalChunks) {
   const client = input.client && typeof input.client === 'object' ? input.client : {};
 
@@ -1641,10 +1669,10 @@ function buildChunkEvidencePrompt(input, chunkText, chunkIndex, totalChunks) {
 
 function buildAssessmentFromEvidencePrompt(input, chunkEvidenceList) {
   const client = input.client && typeof input.client === 'object' ? input.client : {};
+  const limitedEvidence = limitEvidencePackage(chunkEvidenceList);
   const evidencePackage = {
     source_character_count: String(input.transcript_text || '').length,
-    chunk_count: chunkEvidenceList.length,
-    chunks: chunkEvidenceList
+    ...limitedEvidence
   };
 
   return [
@@ -1713,7 +1741,12 @@ async function mapWithConcurrency(items, limit, mapper) {
 }
 
 async function createAssessmentWithGeminiSingleCall(input, model) {
-  return normalizeAiAssessment(await generateGeminiJson(model, buildAssessmentPromptV2(input)), input);
+  try {
+    return normalizeAiAssessment(await generateGeminiJson(model, buildAssessmentPromptV2(input)), input);
+  } catch (error) {
+    error.ai_phase = error.ai_phase || 'single_call_assessment';
+    throw error;
+  }
 }
 
 async function createAssessmentWithGeminiChunks(input, model) {
@@ -1724,12 +1757,33 @@ async function createAssessmentWithGeminiChunks(input, model) {
     return createAssessmentWithGeminiSingleCall(input, model);
   }
 
-  const chunkEvidenceList = await mapWithConcurrency(chunks, aiChunkConcurrency, async (chunkText, index) => {
-    const rawEvidence = await generateGeminiJson(model, buildChunkEvidencePrompt(input, chunkText, index, chunks.length));
-    return normalizeChunkEvidence(rawEvidence, index);
-  });
+  let chunkEvidenceList;
+  try {
+    chunkEvidenceList = await mapWithConcurrency(chunks, aiChunkConcurrency, async (chunkText, index) => {
+      try {
+        const rawEvidence = await generateGeminiJson(model, buildChunkEvidencePrompt(input, chunkText, index, chunks.length));
+        return normalizeChunkEvidence(rawEvidence, index);
+      } catch (error) {
+        error.ai_phase = error.ai_phase || 'chunk_extraction';
+        error.ai_chunk_index = index + 1;
+        error.ai_chunk_count = chunks.length;
+        throw error;
+      }
+    });
+  } catch (error) {
+    error.ai_pipeline = 'chunked';
+    throw error;
+  }
 
-  const finalRawAssessment = await generateGeminiJson(model, buildAssessmentFromEvidencePrompt(input, chunkEvidenceList));
+  let finalRawAssessment;
+  try {
+    finalRawAssessment = await generateGeminiJson(model, buildAssessmentFromEvidencePrompt(input, chunkEvidenceList));
+  } catch (error) {
+    error.ai_phase = error.ai_phase || 'chunk_consolidation';
+    error.ai_chunk_count = chunks.length;
+    error.ai_pipeline = 'chunked';
+    throw error;
+  }
   const assessment = normalizeAiAssessment(finalRawAssessment, input);
   assessment.appendix = {
     ...assessment.appendix,
@@ -1916,7 +1970,10 @@ app.post('/api/assessment/generate', async (req, res) => {
       provider: 'gemini',
       model: geminiModel,
       timeout_ms: aiGenerationTimeoutMs,
-      generation_pipeline: generationPipeline
+      generation_pipeline: generationPipeline,
+      ai_phase: error.ai_phase || null,
+      ai_chunk_index: error.ai_chunk_index || null,
+      ai_chunk_count: error.ai_chunk_count || null
     });
   }
 
@@ -1944,7 +2001,8 @@ app.post('/api/assessment/generate', async (req, res) => {
       character_count: normalizedTranscriptText.length,
       chunk_pipeline_threshold_characters: chunkPipelineThresholdCharacters,
       chunk_input_characters: aiChunkInputCharacters,
-      chunk_concurrency: aiChunkConcurrency
+      chunk_concurrency: aiChunkConcurrency,
+      generated_chunk_count: assessment.appendix && assessment.appendix.ai_chunk_count ? assessment.appendix.ai_chunk_count : null
     }
   });
 });

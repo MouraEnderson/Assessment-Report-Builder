@@ -364,6 +364,8 @@ Status:
 - chamada unica possui limite operacional `AI_MAX_INPUT_CHARS`;
 - limite provisorio atual: `140000` caracteres para testes com documentos reais maiores;
 - pipeline atual aciona acima de `AI_CHUNK_PIPELINE_THRESHOLD_CHARS` e consolida evidencias extraidas por chunk;
+- defaults atuais do pipeline: `AI_CHUNK_INPUT_CHARS=16000` e `AI_CHUNK_CONCURRENCY=2`;
+- a consolidacao final recebe pacote compacto de evidencias para reduzir risco de timeout;
 - o pipeline atual ainda e sincrono na requisicao HTTP; job assincrono continua sendo evolucao necessaria se o Render/navegador estourar timeout;
 - documento acima do limite retorna `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`, sem corte silencioso;
 - se uma etapa falhar, o backend retorna erro e nao gera relatorio parcial.

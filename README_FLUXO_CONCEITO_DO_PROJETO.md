@@ -102,8 +102,8 @@ Variavel opcional:
 AI_MAX_INPUT_CHARS=140000
 AI_GENERATION_TIMEOUT_MS=110000
 AI_CHUNK_PIPELINE_THRESHOLD_CHARS=45000
-AI_CHUNK_INPUT_CHARS=24000
-AI_CHUNK_CONCURRENCY=3
+AI_CHUNK_INPUT_CHARS=16000
+AI_CHUNK_CONCURRENCY=2
 ```
 
 Premissa operacional atual:
@@ -112,6 +112,7 @@ Premissa operacional atual:
 - A geracao em chamada unica fica preservada para documentos menores.
 - Documentos acima de `AI_CHUNK_PIPELINE_THRESHOLD_CHARS` usam pipeline IA por chunks.
 - Cada chunk usa ate `AI_CHUNK_INPUT_CHARS` caracteres e a consolidacao final gera o assessment oficial validado.
+- O pacote de consolidacao final usa evidencias compactadas para reduzir timeout sem cortar o documento de entrada.
 - O limite atual de `140000` caracteres e provisorio para viabilizar testes com documentos reais maiores.
 - Documento acima desse limite deve parar com `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`.
 - Nao e permitido cortar silenciosamente o documento para gerar relatorio parcial.
