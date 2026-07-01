@@ -215,6 +215,13 @@ Mapa de gaps, riscos e roadmap:
 - DOCX local e DOCX vindo do endpoint local abriram no Microsoft Word;
 - Microsoft Word reconheceu os objetos visuais no documento (`Shapes=78`, `InlineChartCount=1`).
 
+Correcao de preservacao visual:
+
+- o pos-processamento nao pode remover tabelas de layout que contenham `w:drawing`, `w:pict` ou `mc:AlternateContent`;
+- placeholders vazios so devem remover uma secao visual inteira quando a secao nao tem nenhum dado real;
+- quando a secao tem ao menos um dado real, slots excedentes ficam vazios para preservar o mapa/fluxo;
+- validacao local direta e via endpoint preservou `drawings=94`, `pict=93`, `AlternateContent=93`, sem marcadores pendentes e sem termos legados.
+
 Validacao negativa:
 
 - um DOCX contaminado antigo foi bloqueado por `DOCX_EXPORT_TEMPLATE_LEAK`.

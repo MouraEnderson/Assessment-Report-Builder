@@ -9,6 +9,7 @@ function compactArray(value) {
 }
 
 const REMOVE_VISUAL_SHAPE_MARKER = '__REMOVE_EMPTY_VISUAL_SHAPE__';
+const EMPTY_VISUAL_SHAPE_TEXT = ' ';
 
 function normalizeDisplayText(value) {
   return String(value == null ? '' : value)
@@ -87,12 +88,12 @@ function buildFlowVisuals(flows) {
       flow_name: safeText(flow.name, 'Fluxo nao nomeado'),
       flow_type: safeText(flow.type, 'AS-IS'),
       evidence: safeText(flow.evidence, 'Nao evidenciado no rascunho importado.'),
-      step_1: flowStepText(visibleSteps[0], REMOVE_VISUAL_SHAPE_MARKER),
-      step_2: flowStepText(visibleSteps[1], REMOVE_VISUAL_SHAPE_MARKER),
-      step_3: flowStepText(visibleSteps[2], REMOVE_VISUAL_SHAPE_MARKER),
-      step_4: flowStepText(visibleSteps[3], REMOVE_VISUAL_SHAPE_MARKER),
-      step_5: flowStepText(visibleSteps[4], REMOVE_VISUAL_SHAPE_MARKER),
-      step_6: flowStepText(visibleSteps[5], REMOVE_VISUAL_SHAPE_MARKER),
+      step_1: flowStepText(visibleSteps[0], EMPTY_VISUAL_SHAPE_TEXT),
+      step_2: flowStepText(visibleSteps[1], EMPTY_VISUAL_SHAPE_TEXT),
+      step_3: flowStepText(visibleSteps[2], EMPTY_VISUAL_SHAPE_TEXT),
+      step_4: flowStepText(visibleSteps[3], EMPTY_VISUAL_SHAPE_TEXT),
+      step_5: flowStepText(visibleSteps[4], EMPTY_VISUAL_SHAPE_TEXT),
+      step_6: flowStepText(visibleSteps[5], EMPTY_VISUAL_SHAPE_TEXT),
       overflow_note: overflow
     };
   });
@@ -114,17 +115,18 @@ function buildFlowVisuals(flows) {
 function buildNativeFlowPlaceholders(flows) {
   const visuals = buildFlowVisuals(flows).slice(0, 2);
   const result = {};
+  const hasAnyFlow = compactArray(flows).length > 0;
 
   for (let flowIndex = 0; flowIndex < 2; flowIndex += 1) {
     const flow = visuals[flowIndex];
     result[`flow_shape_${flowIndex + 1}_title`] = flow
       ? `${safeText(flow.flow_type, 'Pendente')} - ${compactShapeText(flow.flow_name, 52)}`
-      : REMOVE_VISUAL_SHAPE_MARKER;
+      : (hasAnyFlow ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER);
 
     for (let stepIndex = 0; stepIndex < 6; stepIndex += 1) {
       result[`flow_shape_${flowIndex + 1}_step_${stepIndex + 1}`] = safeText(
         flow && flow[`step_${stepIndex + 1}`],
-        REMOVE_VISUAL_SHAPE_MARKER
+        hasAnyFlow ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER
       );
     }
   }
@@ -135,18 +137,19 @@ function buildNativeFlowPlaceholders(flows) {
 function buildNativeFlowDetailPlaceholders(flows) {
   const steps = flattenFlowSteps(flows).slice(0, 8);
   const result = {};
+  const hasRealSteps = compactArray(flows).some((flow) => compactArray(flow.steps).length > 0);
 
   for (let index = 0; index < 8; index += 1) {
     const step = steps[index];
     result[`flow_detail_shape_${index + 1}_title`] = step ? compactShapeText([
       safeText(step.order, ''),
       safeText(step.flow_name, '')
-    ].filter(Boolean).join(' - '), 34) : REMOVE_VISUAL_SHAPE_MARKER;
+    ].filter(Boolean).join(' - '), 34) : (hasRealSteps ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER);
     result[`flow_detail_shape_${index + 1}_body`] = step ? compactShapeText([
       safeText(step.activity, ''),
       safeText(step.system, ''),
       safeText(step.responsible, '')
-    ].filter(Boolean).join(' | '), 82) : REMOVE_VISUAL_SHAPE_MARKER;
+    ].filter(Boolean).join(' | '), 82) : (hasRealSteps ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER);
   }
 
   return result;
@@ -194,14 +197,15 @@ function joinShapeParts(parts, maxLength = 76) {
 function buildNativeSoftwarePlaceholders(softwareMap) {
   const systems = compactArray(softwareMap).slice(0, 8);
   const result = {};
+  const emptyValue = systems.length ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER;
 
   for (let index = 0; index < 8; index += 1) {
     const item = systems[index];
-    result[`software_shape_${index + 1}_title`] = item ? compactShapeText(item.software || item.area || `Sistema ${index + 1}`, 36) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`software_shape_${index + 1}_title`] = item ? compactShapeText(item.software || item.area || `Sistema ${index + 1}`, 36) : emptyValue;
     result[`software_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.area, ''),
       safeText(item.usage, '')
-    ], 66) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 66) : emptyValue;
   }
 
   return result;
@@ -210,14 +214,15 @@ function buildNativeSoftwarePlaceholders(softwareMap) {
 function buildNativeProcessPlaceholders(processMap) {
   const processes = compactArray(processMap).slice(0, 6);
   const result = {};
+  const emptyValue = processes.length ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER;
 
   for (let index = 0; index < 6; index += 1) {
     const item = processes[index];
-    result[`process_shape_${index + 1}_title`] = item ? compactShapeText(item.name || `Processo ${index + 1}`, 40) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`process_shape_${index + 1}_title`] = item ? compactShapeText(item.name || `Processo ${index + 1}`, 40) : emptyValue;
     result[`process_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.owner_area, ''),
       safeText(item.systems, '')
-    ], 70) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 70) : emptyValue;
   }
 
   return result;
@@ -226,14 +231,15 @@ function buildNativeProcessPlaceholders(processMap) {
 function buildNativeGapPlaceholders(gapMap) {
   const gaps = compactArray(gapMap).slice(0, 6);
   const result = {};
+  const emptyValue = gaps.length ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER;
 
   for (let index = 0; index < 6; index += 1) {
     const item = gaps[index];
-    result[`gap_shape_${index + 1}_title`] = item ? compactShapeText(item.category || item.id || `Gap ${index + 1}`, 40) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`gap_shape_${index + 1}_title`] = item ? compactShapeText(item.category || item.id || `Gap ${index + 1}`, 40) : emptyValue;
     result[`gap_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.impact, ''),
       safeText(item.recommendation, '')
-    ], 78) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 78) : emptyValue;
   }
 
   return result;
@@ -242,14 +248,15 @@ function buildNativeGapPlaceholders(gapMap) {
 function buildNativeRiskPlaceholders(risks) {
   const riskItems = compactArray(risks).slice(0, 5);
   const result = {};
+  const emptyValue = riskItems.length ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER;
 
   for (let index = 0; index < 5; index += 1) {
     const item = riskItems[index];
-    result[`risk_shape_${index + 1}_title`] = item ? compactShapeText(item.description || item.impact || item.probability || `Risco ${index + 1}`, 40) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`risk_shape_${index + 1}_title`] = item ? compactShapeText(item.description || item.impact || item.probability || `Risco ${index + 1}`, 40) : emptyValue;
     result[`risk_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.impact, ''),
       safeText(item.mitigation, '')
-    ], 78) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 78) : emptyValue;
   }
 
   return result;
@@ -258,14 +265,15 @@ function buildNativeRiskPlaceholders(risks) {
 function buildNativeRoadmapPlaceholders(roadmap) {
   const items = compactArray(roadmap).slice(0, 5);
   const result = {};
+  const emptyValue = items.length ? EMPTY_VISUAL_SHAPE_TEXT : REMOVE_VISUAL_SHAPE_MARKER;
 
   for (let index = 0; index < 5; index += 1) {
     const item = items[index];
-    result[`roadmap_shape_${index + 1}_title`] = item ? compactShapeText(item.title || item.phase || `Onda ${index + 1}`, 32) : REMOVE_VISUAL_SHAPE_MARKER;
+    result[`roadmap_shape_${index + 1}_title`] = item ? compactShapeText(item.title || item.phase || `Onda ${index + 1}`, 32) : emptyValue;
     result[`roadmap_shape_${index + 1}_body`] = item ? joinShapeParts([
       safeText(item.description, ''),
       safeText(item.dependencies, '')
-    ], 78) : REMOVE_VISUAL_SHAPE_MARKER;
+    ], 78) : emptyValue;
   }
 
   return result;

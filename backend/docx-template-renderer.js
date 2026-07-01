@@ -79,6 +79,10 @@ function removeEmptyVisualShapes(documentXml) {
 }
 
 function isPrimaryDetailTable(tableXml) {
+  if (/<w:(drawing|pict)\b|<mc:AlternateContent\b/.test(tableXml)) {
+    return false;
+  }
+
   const text = normalizeXmlText(tableXml);
   const headerGroups = [
     ['AREA', 'SISTEMA', 'USO', 'DORES', 'OPORTUNIDADES'],
@@ -107,6 +111,10 @@ function tableCellTexts(tableXml) {
 }
 
 function isEmptyOperationalTable(tableXml) {
+  if (/<w:(drawing|pict)\b|<mc:AlternateContent\b/.test(tableXml)) {
+    return false;
+  }
+
   const text = normalizeXmlText(tableXml);
   const cells = tableCellTexts(tableXml).filter(Boolean);
   if (!cells.length) return true;
