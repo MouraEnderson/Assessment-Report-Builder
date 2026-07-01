@@ -36,11 +36,8 @@ const widgetBuild = `assessment-${serviceVersion}`;
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
 const configuredGeminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const geminiModel = configuredGeminiModel === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : configuredGeminiModel;
-const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 140000);
+const maxAiInputCharacters = Number(process.env.AI_MAX_INPUT_CHARS || 60000);
 const aiGenerationTimeoutMs = Number(process.env.AI_GENERATION_TIMEOUT_MS || 110000);
-const chunkPipelineThresholdCharacters = Number(process.env.AI_CHUNK_PIPELINE_THRESHOLD_CHARS || 45000);
-const aiChunkInputCharacters = Number(process.env.AI_CHUNK_INPUT_CHARS || 16000);
-const aiChunkConcurrency = Number(process.env.AI_CHUNK_CONCURRENCY || 2);
 
 const frontendPath = path.resolve(__dirname, '..', 'frontend');
 const schemaPath = path.resolve(__dirname, 'schemas', 'assessment.schema.json');
@@ -102,9 +99,6 @@ function healthPayload() {
     css: 'frontend/assets/css/assessment.css',
     ai_max_input_characters: maxAiInputCharacters,
     ai_generation_timeout_ms: aiGenerationTimeoutMs,
-    ai_chunk_pipeline_threshold_characters: chunkPipelineThresholdCharacters,
-    ai_chunk_input_characters: aiChunkInputCharacters,
-    ai_chunk_concurrency: aiChunkConcurrency,
     authentication_boundary: '3DEXPERIENCE session stays in frontend WAFData; Render never receives CAS/cookies/tokens',
     environment: process.env.NODE_ENV || 'development',
     schema: 'assessment.schema.json'
@@ -1530,285 +1524,14 @@ async function generateGeminiJson(model, prompt) {
   }
 }
 
-function splitTranscriptIntoChunks(text, chunkSize) {
-  const normalized = normalizeExtractedText(text);
-  const safeChunkSize = Math.max(8000, Number(chunkSize) || 24000);
-  const paragraphs = normalized.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-  const chunks = [];
-  let current = '';
-
-  function pushCurrent() {
-    if (current.trim()) {
-      chunks.push(current.trim());
-      current = '';
-    }
-  }
-
-  paragraphs.forEach((paragraph) => {
-    if (paragraph.length > safeChunkSize) {
-      pushCurrent();
-      for (let index = 0; index < paragraph.length; index += safeChunkSize) {
-        chunks.push(paragraph.slice(index, index + safeChunkSize).trim());
-      }
-      return;
-    }
-
-    const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
-    if (candidate.length > safeChunkSize) {
-      pushCurrent();
-      current = paragraph;
-      return;
-    }
-    current = candidate;
-  });
-
-  pushCurrent();
-  return chunks;
-}
-
-function compactText(value, maxLength = 280) {
-  const text = nullableText(value);
-  if (!text) return null;
-  return text.length > maxLength ? `${text.slice(0, maxLength - 3).trim()}...` : text;
-}
-
-function normalizeEvidenceItems(value, prefix, maxItems) {
-  return objectArray(value).slice(0, maxItems).map((item, index) => ({
-    id: requiredText(item.id, `${prefix}_${index + 1}`),
-    title: compactText(item.title, 120),
-    description: compactText(item.description || item.analysis || item.detail, 360),
-    evidence: compactText(item.evidence || item.evidence_ref || item.source_excerpt, 420),
-    confidence: normalizeConfidence(item.confidence),
-    impact: normalizeImpact(item.impact),
-    related_items: stringArray(item.related_items || item.related_gaps || item.related_systems).slice(0, 6)
-  }));
-}
-
-function normalizeChunkEvidence(rawEvidence, chunkIndex) {
-  const raw = plainObject(rawEvidence);
-  return {
-    chunk_id: requiredText(raw.chunk_id, `chunk_${chunkIndex + 1}`),
-    chunk_summary: compactText(raw.chunk_summary || raw.summary, 800),
-    client_context: compactText(raw.client_context, 500),
-    systems: normalizeEvidenceItems(raw.systems, `chunk_${chunkIndex + 1}_system`, 8),
-    processes: normalizeEvidenceItems(raw.processes, `chunk_${chunkIndex + 1}_process`, 8),
-    gaps: normalizeEvidenceItems(raw.gaps, `chunk_${chunkIndex + 1}_gap`, 8),
-    risks: normalizeEvidenceItems(raw.risks, `chunk_${chunkIndex + 1}_risk`, 6),
-    flows: normalizeEvidenceItems(raw.flows, `chunk_${chunkIndex + 1}_flow`, 6),
-    recommendations: normalizeEvidenceItems(raw.recommendations, `chunk_${chunkIndex + 1}_recommendation`, 6),
-    roadmap: normalizeEvidenceItems(raw.roadmap, `chunk_${chunkIndex + 1}_roadmap`, 4),
-    open_questions: stringArray(raw.open_questions).slice(0, 8)
-  };
-}
-
-function limitEvidencePackage(chunkEvidenceList) {
-  const chunks = chunkEvidenceList.map((chunk) => ({
-    chunk_id: chunk.chunk_id,
-    chunk_summary: chunk.chunk_summary,
-    client_context: chunk.client_context
-  }));
-
-  return {
-    chunk_count: chunkEvidenceList.length,
-    chunk_summaries: chunks,
-    systems: chunkEvidenceList.flatMap((chunk) => chunk.systems).slice(0, 18),
-    processes: chunkEvidenceList.flatMap((chunk) => chunk.processes).slice(0, 18),
-    gaps: chunkEvidenceList.flatMap((chunk) => chunk.gaps).slice(0, 20),
-    risks: chunkEvidenceList.flatMap((chunk) => chunk.risks).slice(0, 14),
-    flows: chunkEvidenceList.flatMap((chunk) => chunk.flows).slice(0, 14),
-    recommendations: chunkEvidenceList.flatMap((chunk) => chunk.recommendations).slice(0, 14),
-    roadmap: chunkEvidenceList.flatMap((chunk) => chunk.roadmap).slice(0, 10),
-    open_questions: chunkEvidenceList.flatMap((chunk) => chunk.open_questions).slice(0, 20)
-  };
-}
-
-function buildChunkEvidencePrompt(input, chunkText, chunkIndex, totalChunks) {
-  const client = input.client && typeof input.client === 'object' ? input.client : {};
-
-  return [
-    'Voce e um consultor senior de PLM, engenharia, processos, sistemas e 3DEXPERIENCE.',
-    'Tarefa: analisar apenas este trecho do documento e extrair evidencias estruturadas.',
-    'Nao gere assessment final nesta etapa.',
-    '',
-    'Regras obrigatorias:',
-    '- Responda somente com JSON valido, sem markdown.',
-    '- Use somente informacoes presentes neste trecho.',
-    '- Nao reutilize exemplo, template ou conhecimento externo como se fosse evidencia.',
-    '- Se algo for hipotese, deixe isso claro na description ou confidence.',
-    '- Todos os textos devem ficar em portugues do Brasil.',
-    '- Mantenha saida compacta para evitar timeout.',
-    '',
-    'Formato JSON obrigatorio:',
-    JSON.stringify({
-      chunk_id: `chunk_${chunkIndex + 1}`,
-      chunk_summary: 'Resumo objetivo do trecho.',
-      client_context: 'Contexto citado neste trecho, se houver.',
-      systems: [{ id: 's1', title: 'Sistema citado', description: 'Uso ou papel', evidence: 'Trecho/sintese fiel', confidence: 'Alta' }],
-      processes: [{ id: 'p1', title: 'Processo citado', description: 'Como ocorre', evidence: 'Trecho/sintese fiel', confidence: 'Media' }],
-      gaps: [{ id: 'g1', title: 'Gap identificado', description: 'Causa/sintoma', impact: 'Alto', evidence: 'Trecho/sintese fiel', confidence: 'Media' }],
-      risks: [{ id: 'r1', title: 'Risco identificado', description: 'Risco e consequencia', impact: 'Medio', evidence: 'Trecho/sintese fiel', confidence: 'Media' }],
-      flows: [{ id: 'f1', title: 'Fluxo ou handoff', description: 'Origem, destino e passo', evidence: 'Trecho/sintese fiel', confidence: 'Media' }],
-      recommendations: [{ id: 'rec1', title: 'Recomendacao sustentada', description: 'Acao sugerida', related_items: ['g1'], evidence: 'Trecho/sintese fiel', confidence: 'Media' }],
-      roadmap: [{ id: 'w1', title: 'Onda sugerida', description: 'Resultado esperado', related_items: ['rec1'], evidence: 'Trecho/sintese fiel', confidence: 'Baixa' }],
-      open_questions: ['Pergunta objetiva se faltar evidencia.']
-    }, null, 2),
-    '',
-    'Limites:',
-    '- systems, processes, gaps: maximo 8 itens cada.',
-    '- risks, flows, recommendations: maximo 6 itens cada.',
-    '- roadmap: maximo 4 itens.',
-    '- open_questions: maximo 8 perguntas.',
-    '',
-    'Cliente informado:',
-    JSON.stringify({
-      name: normalizeOptionalString(client.name),
-      business_area: normalizeOptionalString(client.business_area),
-      assessment_type: input.assessment_type || 'plm_assessment',
-      generation_mode: input.generation_mode || 'consultivo'
-    }, null, 2),
-    '',
-    `Trecho ${chunkIndex + 1} de ${totalChunks}:`,
-    chunkText
-  ].join('\n');
-}
-
-function buildAssessmentFromEvidencePrompt(input, chunkEvidenceList) {
-  const client = input.client && typeof input.client === 'object' ? input.client : {};
-  const limitedEvidence = limitEvidencePackage(chunkEvidenceList);
-  const evidencePackage = {
-    source_character_count: String(input.transcript_text || '').length,
-    ...limitedEvidence
-  };
-
-  return [
-    'Voce e um consultor senior de PLM, engenharia de produto, processos, sistemas, integracoes e 3DEXPERIENCE.',
-    'Prompt: IA V2 pipeline por chunks.',
-    'Sua tarefa e consolidar as evidencias extraidas dos chunks em um assessment.json estritamente valido.',
-    '',
-    'Regras obrigatorias:',
-    '- Responda somente com JSON valido, sem markdown e sem explicacoes fora do JSON.',
-    '- Use exatamente o contrato do schema oficial; nao adicione propriedades fora do schema.',
-    '- A fonte de verdade desta etapa e o pacote de evidencias dos chunks.',
-    '- Nao invente sistemas, processos, gaps, riscos, fluxos ou roadmap que nao estejam sustentados nas evidencias.',
-    '- Elimine duplicidades entre chunks e preserve o que tiver melhor evidencia.',
-    '- Separe fato, hipotese e pendencia conforme confianca/evidencia.',
-    '- Todos os textos devem ficar em portugues do Brasil.',
-    '- O campo review_status deve iniciar como Pendente.',
-    '- Preencha report_model para orientar o DOCX visual: software_network, process_flows, gap_analysis, maturity_radar, risk_map e roadmap_waves.',
-    '- Se as evidencias forem insuficientes, use quality_review.readiness=draft ou blocked e explique.',
-    '',
-    'Limites obrigatorios de volume para manter JSON valido:',
-    '- software_map: maximo 8 itens.',
-    '- process_map: maximo 8 itens.',
-    '- gap_map: maximo 10 itens.',
-    '- risks: maximo 8 itens.',
-    '- recommendations: maximo 10 itens.',
-    '- roadmap: maximo 6 ondas.',
-    '- report_model.software_network.nodes: maximo 10 nodes.',
-    '- report_model.software_network.links: maximo 12 links.',
-    '- report_model.process_flows: maximo 4 fluxos, maximo 8 passos por fluxo.',
-    '- report_model.gap_analysis: maximo 10 gaps.',
-    '- report_model.maturity_radar: maximo 8 categorias.',
-    '',
-    'Cliente informado:',
-    JSON.stringify({
-      name: normalizeOptionalString(client.name),
-      business_area: normalizeOptionalString(client.business_area),
-      assessment_type: input.assessment_type || 'plm_assessment',
-      generation_mode: input.generation_mode || 'consultivo',
-      transcript_source: input.transcript_source || { type: 'local_upload' },
-      template_source: input.template_source || { type: 'not_selected' }
-    }, null, 2),
-    '',
-    'Schema JSON oficial:',
-    JSON.stringify(assessmentSchema),
-    '',
-    'Pacote de evidencias extraidas dos chunks:',
-    JSON.stringify(evidencePackage)
-  ].join('\n');
-}
-
-async function mapWithConcurrency(items, limit, mapper) {
-  const safeLimit = Math.max(1, Math.min(Number(limit) || 1, items.length || 1));
-  const results = new Array(items.length);
-  let nextIndex = 0;
-
-  async function worker() {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await mapper(items[index], index);
-    }
-  }
-
-  await Promise.all(Array.from({ length: safeLimit }, () => worker()));
-  return results;
-}
-
-async function createAssessmentWithGeminiSingleCall(input, model) {
+async function createAssessmentWithGemini(input) {
+  const model = createGeminiModel();
   try {
     return normalizeAiAssessment(await generateGeminiJson(model, buildAssessmentPromptV2(input)), input);
   } catch (error) {
     error.ai_phase = error.ai_phase || 'single_call_assessment';
     throw error;
   }
-}
-
-async function createAssessmentWithGeminiChunks(input, model) {
-  const transcriptText = normalizeExtractedText(input.transcript_text);
-  const chunks = splitTranscriptIntoChunks(transcriptText, aiChunkInputCharacters);
-
-  if (chunks.length < 2) {
-    return createAssessmentWithGeminiSingleCall(input, model);
-  }
-
-  let chunkEvidenceList;
-  try {
-    chunkEvidenceList = await mapWithConcurrency(chunks, aiChunkConcurrency, async (chunkText, index) => {
-      try {
-        const rawEvidence = await generateGeminiJson(model, buildChunkEvidencePrompt(input, chunkText, index, chunks.length));
-        return normalizeChunkEvidence(rawEvidence, index);
-      } catch (error) {
-        error.ai_phase = error.ai_phase || 'chunk_extraction';
-        error.ai_chunk_index = index + 1;
-        error.ai_chunk_count = chunks.length;
-        throw error;
-      }
-    });
-  } catch (error) {
-    error.ai_pipeline = 'chunked';
-    throw error;
-  }
-
-  let finalRawAssessment;
-  try {
-    finalRawAssessment = await generateGeminiJson(model, buildAssessmentFromEvidencePrompt(input, chunkEvidenceList));
-  } catch (error) {
-    error.ai_phase = error.ai_phase || 'chunk_consolidation';
-    error.ai_chunk_count = chunks.length;
-    error.ai_pipeline = 'chunked';
-    throw error;
-  }
-  const assessment = normalizeAiAssessment(finalRawAssessment, input);
-  assessment.appendix = {
-    ...assessment.appendix,
-    ai_prompt_version: 'v2-consultative-chunked-report-model',
-    ai_pipeline: 'chunked',
-    ai_chunk_count: chunks.length,
-    ai_chunk_input_characters: aiChunkInputCharacters
-  };
-  return assessment;
-}
-
-async function createAssessmentWithGemini(input) {
-  const model = createGeminiModel();
-  const transcriptLength = normalizeExtractedText(input.transcript_text).length;
-
-  if (transcriptLength > chunkPipelineThresholdCharacters) {
-    return createAssessmentWithGeminiChunks(input, model);
-  }
-
-  return createAssessmentWithGeminiSingleCall(input, model);
 }
 
 app.get('/', sendFrontendFile('widget.html', 'html'));
@@ -1933,11 +1656,10 @@ app.post('/api/assessment/generate', async (req, res) => {
     return res.status(413).json({
       ok: false,
       error: 'AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL',
-      message: `Documento com ${normalizedTranscriptText.length} caracteres excede o limite operacional atual de ${maxAiInputCharacters} caracteres para geracao IA. Nao houve corte silencioso nem relatorio parcial.`,
+      message: `Documento com ${normalizedTranscriptText.length} caracteres excede o limite MVP atual de ${maxAiInputCharacters} caracteres para geracao IA no free tier. Nao houve corte silencioso nem relatorio parcial.`,
       diagnostics: {
         character_count: normalizedTranscriptText.length,
-        max_ai_input_characters: maxAiInputCharacters,
-        required_architecture: 'chunked_ai_pipeline'
+        max_ai_input_characters: maxAiInputCharacters
       }
     });
   }
@@ -1955,9 +1677,6 @@ app.post('/api/assessment/generate', async (req, res) => {
     ...input,
     transcript_text: normalizedTranscriptText
   };
-  const generationPipeline = geminiEnabled() && normalizedTranscriptText.length > chunkPipelineThresholdCharacters
-    ? 'chunked'
-    : 'single_call';
 
   let assessment;
   try {
@@ -1973,16 +1692,13 @@ app.post('/api/assessment/generate', async (req, res) => {
       message: isQuota
         ? 'A cota do provedor Gemini foi excedida. Aguarde o reset da cota, use um modelo/plano com mais limite ou habilite billing no projeto.'
         : (isTimeout
-            ? 'A IA excedeu o tempo de geracao. Para documentos grandes, use pipeline por chunks ou reduza temporariamente o arquivo de entrada.'
+            ? 'A IA excedeu o tempo de geracao. Para o MVP free tier, reduza o arquivo de entrada e mantenha ate o limite operacional documentado.'
             : (error.message || 'Falha ao gerar assessment com IA.')),
       details: error.parse_message || null,
       provider: 'gemini',
       model: geminiModel,
       timeout_ms: aiGenerationTimeoutMs,
-      generation_pipeline: generationPipeline,
-      ai_phase: error.ai_phase || null,
-      ai_chunk_index: error.ai_chunk_index || null,
-      ai_chunk_count: error.ai_chunk_count || null
+      ai_phase: error.ai_phase || null
     });
   }
 
@@ -2006,12 +1722,9 @@ app.post('/api/assessment/generate', async (req, res) => {
     assessment,
     validation,
     diagnostics: {
-      generation_pipeline: generationPipeline,
+      generation_mode: 'single_call',
       character_count: normalizedTranscriptText.length,
-      chunk_pipeline_threshold_characters: chunkPipelineThresholdCharacters,
-      chunk_input_characters: aiChunkInputCharacters,
-      chunk_concurrency: aiChunkConcurrency,
-      generated_chunk_count: assessment.appendix && assessment.appendix.ai_chunk_count ? assessment.appendix.ai_chunk_count : null
+      max_ai_input_characters: maxAiInputCharacters
     }
   });
 });
