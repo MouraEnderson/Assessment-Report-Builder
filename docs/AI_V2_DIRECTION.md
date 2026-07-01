@@ -355,7 +355,7 @@ Validacao:
 
 Status:
 
-- implementado como primeiro corte sem multiplas chamadas Gemini;
+- implementado como primeiro corte com chamada unica para documentos menores e pipeline por chunks para documentos maiores;
 - `quality_review` da IA participa da validacao;
 - exportacao DOCX e bloqueada quando `quality_review.readiness = blocked`;
 - warnings de qualidade aparecem no resultado de validacao;
@@ -363,9 +363,10 @@ Status:
 - ainda nao ha reprocessamento isolado de uma unica secao.
 - chamada unica possui limite operacional `AI_MAX_INPUT_CHARS`;
 - limite provisorio atual: `140000` caracteres para testes com documentos reais maiores;
-- esse limite nao substitui a arquitetura definitiva por chunks;
+- pipeline atual aciona acima de `AI_CHUNK_PIPELINE_THRESHOLD_CHARS` e consolida evidencias extraidas por chunk;
+- o pipeline atual ainda e sincrono na requisicao HTTP; job assincrono continua sendo evolucao necessaria se o Render/navegador estourar timeout;
 - documento acima do limite retorna `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`, sem corte silencioso;
-- proximo passo obrigatorio para documentos grandes e pipeline por chunks com consolidacao.
+- se uma etapa falhar, o backend retorna erro e nao gera relatorio parcial.
 
 ### PR IA-4 - UI de revisao inteligente
 

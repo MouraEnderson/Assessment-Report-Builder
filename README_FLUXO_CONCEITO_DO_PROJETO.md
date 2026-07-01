@@ -101,16 +101,21 @@ Variavel opcional:
 ```text
 AI_MAX_INPUT_CHARS=140000
 AI_GENERATION_TIMEOUT_MS=110000
+AI_CHUNK_PIPELINE_THRESHOLD_CHARS=45000
+AI_CHUNK_INPUT_CHARS=24000
+AI_CHUNK_CONCURRENCY=3
 ```
 
 Premissa operacional atual:
 
-- A geracao IA em chamada unica aceita ate `AI_MAX_INPUT_CHARS`.
+- A importacao IA aceita ate `AI_MAX_INPUT_CHARS`.
+- A geracao em chamada unica fica preservada para documentos menores.
+- Documentos acima de `AI_CHUNK_PIPELINE_THRESHOLD_CHARS` usam pipeline IA por chunks.
+- Cada chunk usa ate `AI_CHUNK_INPUT_CHARS` caracteres e a consolidacao final gera o assessment oficial validado.
 - O limite atual de `140000` caracteres e provisorio para viabilizar testes com documentos reais maiores.
-- Esse limite nao transforma chamada unica em arquitetura definitiva para documentos longos.
 - Documento acima desse limite deve parar com `AI_INPUT_TOO_LARGE_FOR_SINGLE_CALL`.
 - Nao e permitido cortar silenciosamente o documento para gerar relatorio parcial.
-- Proxima arquitetura necessaria para documentos grandes: pipeline IA por chunks com consolidacao e quality review final.
+- Se o pipeline falhar em qualquer etapa, a aplicacao deve retornar erro tecnico honesto e nao gerar relatorio parcial.
 
 ## Backup de Seguranca
 
