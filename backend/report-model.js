@@ -10,6 +10,7 @@ function compactArray(value) {
 
 const REMOVE_VISUAL_SHAPE_MARKER = '__REMOVE_EMPTY_VISUAL_SHAPE__';
 const EMPTY_VISUAL_SHAPE_TEXT = ' ';
+const NOT_EVIDENCED = 'Nao evidenciado no rascunho importado.';
 
 function normalizeDisplayText(value) {
   return String(value == null ? '' : value)
@@ -76,8 +77,38 @@ function flowStepText(step, fallback) {
   return parts.length ? compactShapeText(parts.join(' | '), 58) : fallback;
 }
 
-function buildFlowVisuals(flows) {
-  const rows = compactArray(flows).map((flow) => {
+function buildToBeFlowFromRoadmap(roadmap) {
+  const items = compactArray(roadmap).slice(0, 6);
+  if (!items.length) return null;
+
+  return {
+    type: 'TO-BE',
+    name: 'Roadmap recomendado',
+    evidence: 'Derivado do roadmap e das recomendacoes estruturadas pela IA.',
+    confidence: 'Media',
+    issues: [],
+    steps: items.map((item, index) => ({
+      order: index + 1,
+      input: safeText(item.dependencies, ''),
+      activity: safeText(item.title || item.description || item.phase, `Onda ${index + 1}`),
+      responsible: '',
+      output: safeText(item.description, ''),
+      system: safeText(item.phase, ''),
+      area: '',
+      issue: ''
+    }))
+  };
+}
+
+function buildDisplayFlows(flows, roadmap) {
+  const sourceFlows = compactArray(flows);
+  const hasToBe = sourceFlows.some((flow) => safeText(flow.type, '').toUpperCase() === 'TO-BE');
+  const toBeFlow = hasToBe ? null : buildToBeFlowFromRoadmap(roadmap);
+  return toBeFlow ? [...sourceFlows, toBeFlow] : sourceFlows;
+}
+
+function buildFlowVisuals(flows, roadmap) {
+  const rows = buildDisplayFlows(flows, roadmap).map((flow) => {
     const steps = compactArray(flow.steps);
     const visibleSteps = steps.slice(0, 6);
     const overflow = steps.length > visibleSteps.length
@@ -87,7 +118,7 @@ function buildFlowVisuals(flows) {
     return {
       flow_name: safeText(flow.name, 'Fluxo nao nomeado'),
       flow_type: safeText(flow.type, 'AS-IS'),
-      evidence: safeText(flow.evidence, 'Nao evidenciado no rascunho importado.'),
+      evidence: safeText(flow.evidence, NOT_EVIDENCED),
       step_1: flowStepText(visibleSteps[0], EMPTY_VISUAL_SHAPE_TEXT),
       step_2: flowStepText(visibleSteps[1], EMPTY_VISUAL_SHAPE_TEXT),
       step_3: flowStepText(visibleSteps[2], EMPTY_VISUAL_SHAPE_TEXT),
@@ -101,7 +132,7 @@ function buildFlowVisuals(flows) {
   return rows.length ? rows : [{
     flow_name: 'Fluxo nao evidenciado',
     flow_type: 'Pendente',
-    evidence: 'Nao evidenciado no rascunho importado.',
+    evidence: NOT_EVIDENCED,
     step_1: 'Etapa 1 nao evidenciada',
     step_2: 'Etapa 2 nao evidenciada',
     step_3: 'Etapa 3 nao evidenciada',
@@ -112,10 +143,11 @@ function buildFlowVisuals(flows) {
   }];
 }
 
-function buildNativeFlowPlaceholders(flows) {
-  const visuals = buildFlowVisuals(flows).slice(0, 2);
+function buildNativeFlowPlaceholders(flows, roadmap) {
+  const displayFlows = buildDisplayFlows(flows, roadmap);
+  const visuals = buildFlowVisuals(flows, roadmap).slice(0, 2);
   const result = {};
-  const hasAnyFlow = compactArray(flows).length > 0;
+  const hasAnyFlow = displayFlows.length > 0;
 
   for (let flowIndex = 0; flowIndex < 2; flowIndex += 1) {
     const flow = visuals[flowIndex];
@@ -169,12 +201,6 @@ function compactShapeText(value, maxLength = 72) {
     .replace(/\bSOLIDWORKS\b/g, 'SW')
     .replace(/\bSolidWorks\b/g, 'SW')
     .replace(/\bStandard\b/g, '')
-    .replace(/\bGerenciamento de\b/gi, 'Gestao de')
-    .replace(/\bComponentes\b/gi, 'Comp.')
-    .replace(/\bInfraestrutura\b/gi, 'Infra.')
-    .replace(/\bPerformance\b/gi, 'Perf.')
-    .replace(/\bOtimização\b/g, 'Otimizacao')
-    .replace(/\bOtimização\b/gi, 'Otimizacao')
     .trim();
 
   if (!text) return '-';
@@ -338,6 +364,37 @@ function buildRadarSummary(gapRadar) {
   return `Maturidade média ${average.toFixed(1)}/5. ${priorityText}`;
 }
 
+function hasLetters(value) {
+  return /[A-Za-zÀ-ÖØ-öø-ÿ]{3,}/.test(String(value || ''));
+}
+
+function meaningfulText(value, fallback) {
+  const text = safeText(value, '').trim();
+  if (!text || text === '-' || !hasLetters(text)) return fallback;
+  return text;
+}
+
+function normalizeAssessmentTypeLabel(value) {
+  const text = safeText(value, '').trim();
+  const normalized = text.toLowerCase().replace(/[_-]+/g, ' ');
+  const labels = {
+    software_assessment: 'Software Assessment',
+    'software assessment': 'Software Assessment',
+    process_assessment: 'Process Assessment',
+    'process assessment': 'Process Assessment',
+    plm_assessment: 'PLM Assessment',
+    'plm assessment': 'PLM Assessment'
+  };
+  return labels[text] || labels[normalized] || meaningfulText(text, 'Assessment');
+}
+
+function formatDisplayDate(value) {
+  const text = safeText(value, '').trim();
+  const date = new Date(text);
+  if (!text || Number.isNaN(date.getTime())) return text || '-';
+  return date.toLocaleDateString('pt-BR');
+}
+
 function reportSectionNarrative(reportModel, sectionId) {
   const section = compactArray(reportModel.section_narratives).find((item) => (
     safeText(item.section_id, '').toLowerCase() === String(sectionId || '').toLowerCase()
@@ -353,7 +410,7 @@ function reportSoftwareMap(reportModel, fallback) {
   return nodes.map((node) => ({
     area: safeText(node.type, 'Sistema'),
     software: safeText(node.label || node.id, 'Sistema nao nomeado'),
-    usage: safeText(node.description, 'Uso nao evidenciado no rascunho importado.'),
+    usage: safeText(node.description, NOT_EVIDENCED),
     pain_points: [],
     opportunities: [],
     evidence: safeText(node.evidence_refs),
@@ -481,8 +538,9 @@ function buildReportModel(assessment) {
   const radar = reportRadar(aiReportModel, source.gap_radar);
   const recommendations = reportRecommendations(aiReportModel, source.recommendations);
   const roadmap = reportRoadmap(aiReportModel, source.roadmap);
-  const nativeFlowPlaceholders = buildNativeFlowPlaceholders(flows);
-  const nativeFlowDetailPlaceholders = buildNativeFlowDetailPlaceholders(flows);
+  const displayFlows = buildDisplayFlows(flows, roadmap);
+  const nativeFlowPlaceholders = buildNativeFlowPlaceholders(flows, roadmap);
+  const nativeFlowDetailPlaceholders = buildNativeFlowDetailPlaceholders(displayFlows);
   const nativeSoftwarePlaceholders = buildNativeSoftwarePlaceholders(softwareMap);
   const nativeProcessPlaceholders = buildNativeProcessPlaceholders(processMap);
   const nativeGapPlaceholders = buildNativeGapPlaceholders(gapMap);
@@ -492,18 +550,18 @@ function buildReportModel(assessment) {
   const cover = {
     title: 'Assessment de Engenharia',
     client_name: safeText(client.name, 'Cliente nao informado'),
-    business_area: safeText(client.business_area, 'Area nao informada'),
-    assessment_type: safeText(metadata.assessment_type, 'Assessment'),
-    generated_at: safeText(metadata.updated_at || metadata.created_at, '')
+    business_area: meaningfulText(client.business_area, 'Area nao informada'),
+    assessment_type: normalizeAssessmentTypeLabel(metadata.assessment_type),
+    generated_at: formatDisplayDate(metadata.updated_at || metadata.created_at)
   };
   const executive = {
     current_state: safeText(
       aiReportModel.executive_narrative || reportSectionNarrative(aiReportModel, 'executive_summary') || executiveSummary.current_state,
-      'Nao evidenciado no rascunho importado.'
+      NOT_EVIDENCED
     ),
     main_pains: compactArray(executiveSummary.main_pains).map((pain) => safeText(pain)),
     overall_maturity: safeText(executiveSummary.overall_maturity, 'Nao avaliada'),
-    evidence: safeText(executiveSummary.evidence, 'Nao evidenciado no rascunho importado.')
+    evidence: safeText(executiveSummary.evidence, NOT_EVIDENCED)
   };
 
   return {
@@ -557,8 +615,8 @@ function buildReportModel(assessment) {
     native_flow_diagrams: '__NATIVE_FLOW_DIAGRAMS__',
     ...nativeFlowPlaceholders,
     ...nativeFlowDetailPlaceholders,
-    flow_visuals: buildFlowVisuals(flows),
-    flow_steps: flattenFlowSteps(flows),
+    flow_visuals: buildFlowVisuals(flows, roadmap),
+    flow_steps: flattenFlowSteps(displayFlows),
     risks: compactArray(riskMap).map((item) => ({
       description: safeText(item.description),
       probability: safeText(item.probability),
